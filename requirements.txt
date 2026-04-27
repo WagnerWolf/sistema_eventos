@@ -6,6 +6,7 @@ et_xmlfile==2.0.0
 idna==3.13
 openpyxl==3.1.5
 pillow==12.2.0
+pytz==2026.1.post1
 requests==2.33.1
 resend==2.29.0
 sqlparse==0.5.5

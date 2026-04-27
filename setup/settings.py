@@ -120,5 +120,5 @@ LOGIN_REDIRECT_URL = 'painel_dashboard'  # Para onde ir após logar com sucesso
 LOGOUT_REDIRECT_URL = 'lista_eventos'    # Para onde ir após sair
 LOGIN_URL = 'login'                      # Nome da rota de login
 # Configurações do Resend
-RESEND_API_KEY = "sua_api_key_aqui"
+RESEND_API_KEY = "re_G2pNaHVe_6dehuHhHnzVXLCJHUusTuC8m"
 EMAIL_REMETENTE = "inscricao@wagnerwolf.com.br" # Ou seu domínio verificado

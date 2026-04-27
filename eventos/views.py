@@ -10,7 +10,8 @@ from django.core.paginator import Paginator
 from .forms import EventoForm
 import resend
 from django.conf import settings
-
+from django.utils import timezone
+import pytz
 
 def lista_eventos(request):
     todos_eventos = Evento.objects.all().order_by('-data_inicio')
@@ -83,7 +84,7 @@ def inscricao_evento(request, evento_id):
         )
         
         # Mensagem de sucesso para o usuário
-        messages.success(request, 'Sua inscrição foi registrada com sucesso!')
+        messages.success(request, 'Sua inscrição foi registrada com sucesso, aguarde o email de confirmação!')
         return redirect('lista_eventos')
 
     return render(request, 'eventos/form_inscricao.html', {'evento': evento})
@@ -186,8 +187,13 @@ def gerenciar_inscricoes(request, evento_id):
             inscricao.save()
 
             # --- Lógica de Envio de E-mail ---
+            # --- Lógica de Envio de E-mail ---
             if novo_status == 'APROVADA' and status_anterior != 'APROVADA':
                 try:
+                    # Converte a data do banco (UTC) para o fuso local definido no settings
+                    fuso_local = pytz.timezone(settings.TIME_ZONE)
+                    data_local = evento.data_inicio.astimezone(fuso_local)
+                    
                     resend.api_key = settings.RESEND_API_KEY
                     resend.Emails.send({
                         "from": f"Sistema de Eventos <{settings.EMAIL_REMETENTE}>",
@@ -199,7 +205,7 @@ def gerenciar_inscricoes(request, evento_id):
                                 <p>Temos o prazer de informar que sua inscrição para o evento <strong>{evento.titulo}</strong> foi <strong>APROVADA</strong>.</p>
                                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
                                     <p style="margin: 0;"><strong>📍 Local:</strong> {evento.local or 'A definir'}</p>
-                                    <p style="margin: 5px 0 0 0;"><strong>⏰ Início:</strong> {evento.data_inicio.strftime('%d/%m/%Y às %H:%M')}</p>
+                                    <p style="margin: 5px 0 0 0;"><strong>⏰ Início:</strong> {data_local.strftime('%d/%m/%Y às %H:%M')}</p>
                                 </div>
                                 <p style="font-size: 12px; color: #666;">Este é um e-mail automático, por favor não responda.</p>
                             </div>
