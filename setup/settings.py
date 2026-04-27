@@ -23,9 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-$@(ddr@!y=5%!@9@y_5x87@ja09(re!s@pq+ew4*&_)-*m%yg%'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['eventos.wagnerwolf.com.br', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -122,3 +122,4 @@ LOGIN_URL = 'login'                      # Nome da rota de login
 # Configurações do Resend
 RESEND_API_KEY = "re_G2pNaHVe_6dehuHhHnzVXLCJHUusTuC8m"
 EMAIL_REMETENTE = "inscricao@wagnerwolf.com.br" # Ou seu domínio verificado
+STATIC_ROOT = os.path.join(BASE_DIR, 'static_root')
