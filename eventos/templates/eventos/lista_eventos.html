@@ -39,10 +39,11 @@
                                     <span class="text-success fw-bold">📍 Local:</span><br>
                                     {{ evento.local|default:"A definir" }}
                                 </p>
-                                <p class="mb-2 small">
-                                    <span class="text-success fw-bold">⏰ Realização:</span><br>
-                                    Dia {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }}
-                                </p>
+                                    <p class="mb-2 small">
+                                        <span class="text-success fw-bold">⏰ Realização:</span><br>
+                                        De {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }}<br>
+                                        Até {{ evento.data_fim|date:"d/m/Y" }} às {{ evento.data_fim|date:"H:i" }}
+                                    </p>
                                 <p class="mb-1 small">
                                     <span class="text-success fw-bold">📅 Período de Inscrição:</span><br>
                                     {{ evento.inicio_inscricoes|date:"d/m/Y H:i" }} até {{ evento.fim_inscricoes|date:"d/m/Y H:i" }}
@@ -108,7 +109,10 @@
                             </div>
                             
                             <div class="small text-muted mb-3 border-top border-secondary pt-2">
-                                <p class="mb-1"><strong>Data do evento:</strong> Dia {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }}</p>
+                                <p class="mb-1">
+                                <strong>Período do evento:</strong><br>
+                                    De {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }} até {{ evento.data_fim|date:"d/m/Y" }} às {{ evento.data_fim|date:"H:i" }}
+                                </p>
                                 <p class="mb-0"><strong>Local:</strong> {{ evento.local|default:"A definir" }}</p>
                             </div>
 
