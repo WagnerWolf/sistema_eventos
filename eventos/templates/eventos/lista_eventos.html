@@ -57,12 +57,16 @@
                                 {{ evento.descricao|truncatewords:20 }}
                             </p>
                             
-                            {% if evento.vagas_restantes > 0 %}
+                            {% if evento.inicio_inscricoes and evento.inicio_inscricoes > agora %}
+                                <button class="btn btn-outline-info mt-3 w-100 fw-semibold" disabled>
+                                    Em breve (Abre {{ evento.inicio_inscricoes|date:"d/m" }})
+                                </button>
+                            {% elif evento.vagas_restantes > 0 %}
                                 <a href="{% url 'inscricao_evento' evento.id %}" class="btn btn-primary mt-3 w-100 fw-semibold">Realizar Inscrição</a>
                             {% else %}
                                 <a href="{% url 'inscricao_evento' evento.id %}" class="btn btn-outline-warning mt-3 w-100">Entrar na Lista de Espera</a>
                             {% endif %}
-                        </div>
+                            </div>
                     </div>
                 </div>
             {% empty %}
@@ -129,7 +133,7 @@
         </nav>
         {% endif %}
     </div>
-</div>
+
 </div>
 
 <style>

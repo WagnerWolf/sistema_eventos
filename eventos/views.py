@@ -15,28 +15,47 @@ import pytz
 
 def lista_eventos(request):
     todos_eventos = Evento.objects.all().order_by('-data_inicio')
+    agora = timezone.now()
+
+    eventos_ativos_list = [] # Vai guardar tanto os abertos quanto os futuros
+    eventos_encerrados_list = []
     
-    eventos_abertos_list = [evento for evento in todos_eventos if evento.inscricoes_abertas]
-    eventos_encerrados_list = [evento for evento in todos_eventos if not evento.inscricoes_abertas]
+    for evento in todos_eventos:
+        # Se tem data de fim de inscrição e o 'agora' já passou dela, está encerrado
+        if evento.fim_inscricoes and agora > evento.fim_inscricoes:
+            eventos_encerrados_list.append(evento)
+        else:
+            # Caso contrário, ou está aberto agora, ou vai abrir no futuro
+            eventos_ativos_list.append(evento)
     
-    # Paginação para os Eventos Abertos (10 por página)
-    paginator_abertos = Paginator(eventos_abertos_list, 10)
+    paginator_abertos = Paginator(eventos_ativos_list, 10)
     page_number_abertos = request.GET.get('page_abertos', 1)
     eventos_abertos = paginator_abertos.get_page(page_number_abertos)
 
-    # Paginação para os Eventos Encerrados (10 por página)
     paginator_encerrados = Paginator(eventos_encerrados_list, 10)
     page_number_encerrados = request.GET.get('page_encerrados', 1)
     eventos_encerrados = paginator_encerrados.get_page(page_number_encerrados)
     
     context = {
         'eventos_abertos': eventos_abertos,
-        'eventos_encerrados': eventos_encerrados
+        'eventos_encerrados': eventos_encerrados,
+        'agora': agora
     }
     return render(request, 'eventos/lista_eventos.html', context)
 
 def inscricao_evento(request, evento_id):
     evento = get_object_or_404(Evento, id=evento_id)
+    agora = timezone.now()
+    
+    # --- TRAVAS DE PERÍODO DE INSCRIÇÃO ---
+    if evento.inicio_inscricoes and agora < evento.inicio_inscricoes:
+        messages.warning(request, 'As inscrições para este evento ainda não começaram.')
+        return redirect('lista_eventos')
+        
+    if evento.fim_inscricoes and agora > evento.fim_inscricoes:
+        messages.warning(request, 'As inscrições para este evento já foram encerradas.')
+        return redirect('lista_eventos')
+    # --------------------------------------
     
     if request.method == 'POST':
         # Coleta os dados enviados pelo formulário HTML
