@@ -1,0 +1,203 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="text-primary fw-bold mb-4">Portal de Eventos</h2>
+
+        <ul class="nav nav-tabs border-success" id="eventosTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active text-light bg-dark" id="abertos-tab" data-bs-toggle="tab" data-bs-target="#abertos-pane" type="button" role="tab">
+                    Inscrições Abertas
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link text-muted" id="encerrados-tab" data-bs-toggle="tab" data-bs-target="#encerrados-pane" type="button" role="tab">
+                    Eventos Encerrados
+                </button>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="tab-content mt-4" id="eventosTabContent">
+    
+    <div class="tab-pane fade show active" id="abertos-pane" role="tabpanel">
+        <div class="row">
+            {% for evento in eventos_abertos %}
+                <div class="col-md-6 col-lg-4 mb-4 d-flex align-items-stretch">
+                    <div class="card w-100 shadow-sm border-success bg-dark">
+                        {% if evento.imagem_capa %}
+                            <img src="{{ evento.imagem_capa.url }}" class="card-img-top border-bottom border-success" style="height: 180px; object-fit: cover;">
+                        {% endif %}
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title text-primary fw-bold mb-3">{{ evento.titulo }}</h5>
+                            
+                            <div class="mb-3">
+                                <h6 class="text-white-50 border-bottom border-secondary pb-1 mb-2 small text-uppercase">Informações do Evento</h6>
+                                <p class="mb-2 small">
+                                    <span class="text-success fw-bold">📍 Local:</span><br>
+                                    {{ evento.local|default:"A definir" }}
+                                </p>
+                                <p class="mb-2 small">
+                                    <span class="text-success fw-bold">⏰ Realização:</span><br>
+                                    Dia {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }}
+                                </p>
+                                <p class="mb-1 small">
+                                    <span class="text-success fw-bold">📅 Período de Inscrição:</span><br>
+                                    {{ evento.inicio_inscricoes|date:"d/m/Y H:i" }} até {{ evento.fim_inscricoes|date:"d/m/Y H:i" }}
+                                </p>
+                                
+                                <div class="badge bg-success text-dark mt-2 w-100 p-2 fs-6">
+                                    🎟️ {{ evento.vagas_restantes }} de {{ evento.vagas_totais }} vagas
+                                </div>
+                            </div>
+                            
+                            <p class="card-text text-light opacity-75 small flex-grow-1 border-top border-secondary pt-2">
+                                {{ evento.descricao|truncatewords:20 }}
+                            </p>
+                            
+                            {% if evento.vagas_restantes > 0 %}
+                                <a href="{% url 'inscricao_evento' evento.id %}" class="btn btn-primary mt-3 w-100 fw-semibold">Realizar Inscrição</a>
+                            {% else %}
+                                <a href="{% url 'inscricao_evento' evento.id %}" class="btn btn-outline-warning mt-3 w-100">Entrar na Lista de Espera</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="col-12 text-center py-5">
+                    <p class="text-muted">Nenhum evento com inscrições abertas no momento.</p>
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if eventos_abertos.paginator.num_pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center" data-tab-id="abertos-pane">
+                {% if eventos_abertos.has_previous %}
+                    <li class="page-item"><a class="page-link bg-dark text-success border-success" href="?page_abertos={{ eventos_abertos.previous_page_number }}">Anterior</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link bg-success text-dark border-success">Página {{ eventos_abertos.number }} de {{ eventos_abertos.paginator.num_pages }}</span></li>
+                {% if eventos_abertos.has_next %}
+                    <li class="page-item"><a class="page-link bg-dark text-success border-success" href="?page_abertos={{ eventos_abertos.next_page_number }}">Próxima</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+
+    <div class="tab-pane fade" id="encerrados-pane" role="tabpanel">
+        <div class="row">
+            {% for evento in eventos_encerrados %}
+                <div class="col-md-6 col-lg-4 mb-4 d-flex align-items-stretch">
+                    <div class="card w-100 shadow-sm border-secondary bg-dark opacity-75">
+                        {% if evento.imagem_capa %}
+                            <img src="{{ evento.imagem_capa.url }}" class="card-img-top border-bottom border-secondary grayscale" style="height: 150px; object-fit: cover;">
+                        {% endif %}
+                        <div class="card-body d-flex flex-column">
+                            <h6 class="card-title text-light fw-bold">{{ evento.titulo }}</h6>
+                            
+                            <div class="alert alert-secondary py-2 px-3 small mt-2">
+                                <strong>Inscrições encerradas:</strong><br>
+                                {{ evento.fim_inscricoes|date:"d/m/Y H:i" }}
+                            </div>
+                            
+                            <div class="small text-muted mb-3 border-top border-secondary pt-2">
+                                <p class="mb-1"><strong>Data do evento:</strong> Dia {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }}</p>
+                                <p class="mb-0"><strong>Local:</strong> {{ evento.local|default:"A definir" }}</p>
+                            </div>
+
+                            <button class="btn btn-secondary btn-sm mt-auto w-100" disabled>Inscrições Encerradas</button>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if eventos_encerrados.paginator.num_pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center" data-tab-id="encerrados-pane">
+                {% if eventos_encerrados.has_previous %}
+                    <li class="page-item"><a class="page-link bg-dark text-secondary border-secondary" href="?page_encerrados={{ eventos_encerrados.previous_page_number }}">Anterior</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link bg-secondary text-dark border-secondary">Página {{ eventos_encerrados.number }} de {{ eventos_encerrados.paginator.num_pages }}</span></li>
+                {% if eventos_encerrados.has_next %}
+                    <li class="page-item"><a class="page-link bg-dark text-secondary border-secondary" href="?page_encerrados={{ eventos_encerrados.next_page_number }}">Próxima</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+</div>
+
+<style>
+    .grayscale { filter: grayscale(100%); }
+    .page-link:hover { background-color: #198754 !important; color: white !important; }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Escuta cliques no documento todo
+    document.body.addEventListener('click', function(e) {
+        // Se o clique for em um link de paginação
+        if (e.target.tagName.toLowerCase() === 'a' && e.target.classList.contains('page-link')) {
+            e.preventDefault(); // Impede o recarregamento normal
+            const url = e.target.getAttribute('href');
+            
+            // Descobre de qual aba o botão de paginação faz parte
+            const paginationUl = e.target.closest('ul.pagination');
+            if (!paginationUl) return;
+            const abaId = paginationUl.getAttribute('data-tab-id');
+            const abaAtiva = document.getElementById(abaId);
+            
+            // Efeito visual de carregamento rápido
+            abaAtiva.style.opacity = '0.5';
+
+            // Faz a requisição "AJAX"
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    // Converte a string HTML recebida num documento DOM virtual
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    
+                    // Extrai apenas o conteúdo da aba específica e substitui na tela atual
+                    const novoConteudo = doc.getElementById(abaId).innerHTML;
+                    abaAtiva.innerHTML = novoConteudo;
+                    
+                    // Restaura a opacidade
+                    abaAtiva.style.opacity = '1';
+                    
+                    // Atualiza a URL no navegador sem recarregar, permitindo navegação pelo histórico
+                    window.history.pushState({}, '', url);
+                })
+                .catch(err => {
+                    console.error('Erro ao carregar a página:', err);
+                    abaAtiva.style.opacity = '1';
+                });
+        }
+    });
+
+    // Função auxiliar do Bootstrap para alterar o visual das abas ativas
+    const triggerTabList = document.querySelectorAll('#eventosTab button')
+    triggerTabList.forEach(triggerEl => {
+        const tabTrigger = new bootstrap.Tab(triggerEl)
+        triggerEl.addEventListener('click', event => {
+            event.preventDefault()
+            
+            // Troca a cor do fundo e texto das abas para dar destaque à selecionada
+            document.querySelectorAll('#eventosTab button').forEach(b => {
+                b.classList.remove('bg-dark', 'text-light');
+                b.classList.add('text-muted');
+            });
+            triggerEl.classList.remove('text-muted');
+            triggerEl.classList.add('bg-dark', 'text-light');
+            
+            tabTrigger.show()
+        })
+    })
+});
+</script>
+{% endblock %}

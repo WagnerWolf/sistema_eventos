@@ -1,0 +1,175 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-secondary shadow">
+            {% if evento.imagem_capa %}
+                <img src="{{ evento.imagem_capa.url }}" class="card-img-top" alt="Capa" style="max-height: 300px; object-fit: cover;">
+            {% endif %}
+            
+            <div class="card-header bg-dark border-bottom border-success">
+                <h3 class="mb-0 text-primary">Inscrição: {{ evento.titulo }}</h3>
+            </div>
+            
+            <div class="card-body">
+                <form method="POST" action="{% url 'inscricao_evento' evento.id %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="nome_completo" class="form-label">Nome Completo *</label>
+                        <input type="text" class="form-control" id="nome_completo" name="nome_completo" required>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">E-mail *</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="cpf" class="form-label">CPF *</label>
+                            <input type="text" class="form-control" id="cpf" name="cpf" maxlength="14" required>
+                        </div>
+                    </div>
+
+            {% if evento.aberto_comunidade %}
+                        <div class="form-check form-switch mb-4 mt-2">
+                            <input class="form-check-input" type="checkbox" role="switch" id="tem_vinculo" name="tem_vinculo" checked>
+                            <label class="form-check-label text-white" for="tem_vinculo">Possuo vínculo com a universidade (Aluno/Servidor)</label>
+                        </div>
+                    {% else %}
+                        <input type="hidden" id="tem_vinculo" name="tem_vinculo" value="on">
+                        <div class="alert alert-info bg-dark-subtle text-info border-info py-2 small mb-4 mt-2">
+                            ℹ️ Este evento é restrito à comunidade acadêmica. Os dados de vínculo são obrigatórios.
+                        </div>
+                    {% endif %}
+
+                    <div id="bloco_vinculo" class="row bg-dark-subtle p-3 rounded mb-4 border border-secondary">
+                        <div class="col-md-6 mb-3 mb-md-0">
+                            <label for="matricula" class="form-label">Número de Matrícula</label>
+                            <input type="text" class="form-control" id="matricula" name="matricula">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="curso_turma" class="form-label">Curso e Turma / Setor</label>
+                            <input type="text" class="form-control" id="curso_turma" name="curso_turma">
+                        </div>
+                    </div>
+{% if evento.tem_questionario and evento.questionario %}
+                    <div class="row bg-dark-subtle p-3 rounded mb-4 border border-secondary">
+                        <h5 class="text-success border-bottom border-secondary pb-2 mb-3">Informações Adicionais</h5>
+                        
+                        {% for pergunta in evento.questionario %}
+                            <div class="col-12 mb-3">
+                                <label for="{{ pergunta.id }}" class="form-label text-white fw-bold">
+                                    {{ pergunta.enunciado }} 
+                                    {% if pergunta.obrigatoria %}<span class="text-danger">*</span>{% endif %}
+                                </label>
+                                
+                                {% if pergunta.tipo == 'texto' %}
+                                    <input type="text" class="form-control border-secondary" id="{{ pergunta.id }}" name="{{ pergunta.id }}" {% if pergunta.obrigatoria %}required{% endif %}>
+                                
+                                {% elif pergunta.tipo == 'escolha' %}
+                                    <select class="form-select border-secondary" id="{{ pergunta.id }}" name="{{ pergunta.id }}" {% if pergunta.obrigatoria %}required{% endif %}>
+                                        <option value="">Selecione uma opção...</option>
+                                        {% for opcao in pergunta.opcoes %}
+                                            <option value="{{ opcao }}">{{ opcao }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">Confirmar Inscrição</button>
+                        <a href="{% url 'lista_eventos' %}" class="btn btn-outline-secondary">Voltar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {const checkboxVinculo = document.getElementById('tem_vinculo');
+        const blocoVinculo = document.getElementById('bloco_vinculo');
+        const inputMatricula = document.getElementById('matricula');
+        const inputCurso = document.getElementById('curso_turma');
+
+        function toggleVinculo() {
+            // Se for um checkbox (evento aberto) e NÃO estiver marcado
+            if (checkboxVinculo.type === 'checkbox' && !checkboxVinculo.checked) {
+                blocoVinculo.style.display = 'none';
+                inputMatricula.removeAttribute('required');
+                inputCurso.removeAttribute('required');
+                inputMatricula.value = '';
+                inputCurso.value = '';
+            } else {
+                // Se estiver marcado OU se for evento restrito (input hidden)
+                blocoVinculo.style.display = 'flex'; 
+                inputMatricula.setAttribute('required', 'required');
+                inputCurso.setAttribute('required', 'required');
+            }
+        }
+
+        // Executa ao carregar a página
+        toggleVinculo();
+
+        // Só adiciona o ouvinte de clique se for o checkbox
+        if (checkboxVinculo.type === 'checkbox') {
+            checkboxVinculo.addEventListener('change', toggleVinculo);
+        }
+        // --- MÁSCARA DE CPF ---
+        const cpfInput = document.getElementById('cpf');
+        
+        cpfInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, ''); // Remove tudo que não for número
+            if (value.length > 11) value = value.slice(0, 11); // Limita a 11 números
+            
+            // Aplica a formatação XXX.XXX.XXX-XX
+            value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+            
+            e.target.value = value;
+        });
+
+        // --- VALIDAÇÃO MATEMÁTICA DO CPF ---
+        function validarCPF(cpf) {
+            cpf = cpf.replace(/[^\d]+/g, ''); // Remove formatação para validar
+            if (cpf == '' || cpf.length != 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+            
+            let add = 0;
+            for (let i = 0; i < 9; i++) add += parseInt(cpf.charAt(i)) * (10 - i);
+            let rev = 11 - (add % 11);
+            if (rev == 10 || rev == 11) rev = 0;
+            if (rev != parseInt(cpf.charAt(9))) return false;
+            
+            add = 0;
+            for (let i = 0; i < 10; i++) add += parseInt(cpf.charAt(i)) * (11 - i);
+            rev = 11 - (add % 11);
+            if (rev == 10 || rev == 11) rev = 0;
+            if (rev != parseInt(cpf.charAt(10))) return false;
+            
+            return true;
+        }
+
+        // --- INTERCEPTA O ENVIO DO FORMULÁRIO ---
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            if (!validarCPF(cpfInput.value)) {
+                e.preventDefault(); // Impede o envio do formulário
+                alert('Por favor, insira um CPF válido.');
+                cpfInput.classList.add('is-invalid'); // Adiciona borda vermelha do Bootstrap
+                cpfInput.focus();
+            } else {
+                cpfInput.classList.remove('is-invalid');
+                cpfInput.classList.add('is-valid'); // Adiciona borda verde
+            }
+        });
+
+        // Executa sempre que o usuário clicar no switch
+        checkboxVinculo.addEventListener('change', toggleVinculo);
+    });
+</script>
+{% endblock %}

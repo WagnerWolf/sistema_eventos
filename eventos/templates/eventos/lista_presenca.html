@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Lista de Presença - {{ evento.titulo }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Regras específicas para impressão */
+        @media print {
+            @page { margin: 1.5cm; size: A4 portrait; }
+            body { background: white; color: black; -webkit-print-color-adjust: exact; }
+            .no-print { display: none !important; }
+        }
+        body { background-color: #f8f9fa; font-family: Arial, sans-serif; }
+        .page-container {
+            max-width: 21cm; /* Largura de uma folha A4 */
+            margin: 20px auto;
+            background: white;
+            padding: 2cm 1.5cm;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .signature-line {
+            border-bottom: 1px solid #000;
+            display: inline-block;
+            width: 100%;
+            min-height: 25px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="text-center mt-3 mb-3 no-print">
+        <button onclick="window.print()" class="btn btn-success btn-lg px-5 shadow">🖨️ Imprimir Lista</button>
+        <a href="{% url 'gerenciar_inscricoes' evento.id %}" class="btn btn-outline-secondary ms-2">Voltar</a>
+    </div>
+
+    <div class="page-container border border-dark">
+        <div class="text-center mb-4 pb-3 border-bottom border-dark">
+    <h3 class="text-uppercase fw-bold mb-1">Lista de Presença</h3>
+    <h5 class="mb-2">{{ evento.titulo }}</h5>
+    <p class="mb-0 small">
+        <strong>Local:</strong> {{ evento.local|default:"Não informado" }} | 
+    </p>
+    <p class="mt-1 fw-bold">
+        Data: {% now "d/m/Y" %}
+    </p>
+</div>
+
+        <table class="table table-bordered border-dark table-sm align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col" class="text-center" style="width: 5%;">#</th>
+                    <th scope="col" style="width: 40%;">Nome Completo</th>
+                    <th scope="col" class="text-center" style="width: 15%;">Vínculo/CPF</th>
+                    <th scope="col" class="text-center" style="width: 40%;">Assinatura</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inscricao in inscricoes %}
+                <tr>
+                    <th scope="row" class="text-center">{{ forloop.counter }}</th>
+                    <td class="text-uppercase small fw-bold">{{ inscricao.nome_completo }}</td>
+                    <td class="text-center small text-muted">
+                        {% if inscricao.tem_vinculo_universidade %}
+                            {{ inscricao.matricula }}
+                        {% else %}
+                            ***{{ inscricao.cpf|slice:"4:11" }}***
+                        {% endif %}
+                    </td>
+                    <td><span class="signature-line"></span></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center py-4">Nenhuma inscrição aprovada até o momento.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="mt-5 pt-5 text-center">
+            <div class="d-inline-block" style="width: 300px; border-top: 1px solid #000;">
+                <p class="mt-2 small">Assinatura do Coordenador do Evento</p>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

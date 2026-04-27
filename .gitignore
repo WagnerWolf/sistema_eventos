@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ambientes Virtuais
+venv/
+env/
+.venv/
+ENV/
+
+# Banco de Dados (Importante não subir seu banco de testes)
+*.sqlite3
+
+# Arquivos de Mídia (Uploads de fotos de capa dos eventos)
+media/
+
+# Arquivos de Estáticos (Coletados)
+staticfiles/
+static_root/
+
+# Variáveis de ambiente e segredos (Caso você use .env futuramente)
+.env
+.secrets
+
+# Configurações de IDE (VS Code, PyCharm, etc)
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Planilhas temporárias ou geradas
+*.xlsx
+*.csv
+
+# Logs
+*.log
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db

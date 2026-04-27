@@ -1,0 +1,134 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center border-bottom border-success pb-2">
+        <div>
+            <h3 class="mb-0 text-primary">Inscrições: {{ evento.titulo }}</h3>
+            <span class="text-muted small">Vagas Disponíveis: {{ evento.vagas_restantes }} de {{ evento.vagas_totais }}</span>
+        </div>
+        <div>
+            <a href="{% url 'lista_presenca' evento.id %}" target="_blank" class="btn btn-outline-light btn-sm me-2">🖨️ Imprimir Presenças</a>
+            <a href="{% url 'painel_dashboard' %}" class="btn btn-outline-secondary btn-sm">Voltar ao Painel</a>
+        </div>
+    </div>
+</div>
+
+<div class="card border-secondary shadow">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-striped table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4">Nome / Contato</th>
+                        <th>Vínculo / Matrícula</th>
+                        <th>Data da Inscrição</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-end pe-4">Ações Rápidas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inscricao in inscricoes %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-light">{{ inscricao.nome_completo }}</div>
+                            <div class="small text-muted">{{ inscricao.email }}</div>
+                            <div class="small text-muted">CPF: {{ inscricao.cpf }}</div>
+                        </td>
+                        <td>
+                            {% if inscricao.tem_vinculo_universidade %}
+                                <span class="badge bg-info text-dark">Sim</span>
+                                <div class="small text-muted mt-1">{{ inscricao.matricula|default:"-" }}</div>
+                                <div class="small text-muted">{{ inscricao.curso_turma|default:"-" }}</div>
+                            {% else %}
+                                <span class="badge bg-secondary">Comunidade Externa</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ inscricao.data_inscricao|date:"d/m/Y H:i" }}</td>
+                        <td class="text-center">
+                            {% if inscricao.status == 'APROVADA' %}
+                                <span class="badge bg-success">Aprovada</span>
+                            {% elif inscricao.status == 'RECUSADA' %}
+                                <span class="badge bg-danger">Recusada</span>
+                            {% elif inscricao.status == 'LISTA_ESPERA' %}
+                                <span class="badge bg-warning text-dark">Lista de Espera</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Pendente</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <button type="button" class="btn btn-sm btn-outline-info me-1" data-bs-toggle="modal" data-bs-target="#modalDetalhes{{ inscricao.id }}" title="Ver Detalhes">
+                                👁️ Detalhes
+                            </button>
+
+                            <form method="POST" class="d-inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="inscricao_id" value="{{ inscricao.id }}">
+                                
+                                {% if inscricao.status != 'APROVADA' %}
+                                    <button type="submit" name="novo_status" value="APROVADA" class="btn btn-sm btn-outline-success" title="Aprovar">✓</button>
+                                {% endif %}
+                                
+                                {% if inscricao.status != 'LISTA_ESPERA' %}
+                                    <button type="submit" name="novo_status" value="LISTA_ESPERA" class="btn btn-sm btn-outline-warning" title="Mover para Espera">⏱</button>
+                                {% endif %}
+
+                                {% if inscricao.status != 'RECUSADA' %}
+                                    <button type="submit" name="novo_status" value="RECUSADA" class="btn btn-sm btn-outline-danger" title="Recusar">✕</button>
+                                {% endif %}
+                            </form>
+
+                            <div class="modal fade" id="modalDetalhes{{ inscricao.id }}" tabindex="-1" aria-labelledby="modalLabel{{ inscricao.id }}" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                                    <div class="modal-content bg-dark border-success text-start">
+                                        <div class="modal-header border-success">
+                                            <h1 class="modal-title fs-5 text-primary" id="modalLabel{{ inscricao.id }}">Detalhes da Inscrição</h1>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body text-light">
+                                            <h6 class="text-success border-bottom border-secondary pb-1 mb-2">Dados Pessoais</h6>
+                                            <p class="mb-1 small"><strong>Nome:</strong> {{ inscricao.nome_completo }}</p>
+                                            <p class="mb-1 small"><strong>E-mail:</strong> {{ inscricao.email }}</p>
+                                            <p class="mb-3 small"><strong>CPF:</strong> {{ inscricao.cpf }}</p>
+
+                                            <h6 class="text-success border-bottom border-secondary pb-1 mb-2 mt-3">Vínculo Institucional</h6>
+                                            {% if inscricao.tem_vinculo_universidade %}
+                                                <p class="mb-1 small"><strong>Matrícula:</strong> {{ inscricao.matricula|default:"Não informada" }}</p>
+                                                <p class="mb-3 small"><strong>Curso/Turma:</strong> {{ inscricao.curso_turma|default:"Não informado" }}</p>
+                                            {% else %}
+                                                <p class="mb-3 small text-muted">Membro da comunidade externa.</p>
+                                            {% endif %}
+
+                                            {% if inscricao.respostas_detalhadas %}
+                                                <h6 class="text-success border-bottom border-secondary pb-1 mb-2 mt-3">Questionário Adicional</h6>
+                                                <ul class="list-group list-group-flush border border-secondary rounded">
+                                                    {% for item in inscricao.respostas_detalhadas %}
+                                                        <li class="list-group-item bg-dark-subtle text-light border-secondary p-2">
+                                                            <div class="fw-bold small text-white">{{ item.enunciado }}</div>
+                                                            <div class="small text-muted mt-1">{{ item.resposta|default:"<em>Nenhuma resposta fornecida</em>" }}</div>
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% endif %}
+                                        </div>
+                                        <div class="modal-footer border-secondary">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            Nenhuma inscrição registrada para este evento ainda.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

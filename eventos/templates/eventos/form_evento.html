@@ -1,0 +1,214 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card border-success shadow bg-dark">
+            <div class="card-header border-bottom border-success py-3">
+                <h3 class="mb-0 text-primary fw-bold">{{ titulo_pagina }}</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-7">
+                            <div class="mb-3">
+                                <label class="form-label text-white">Título do Evento</label>
+                                {{ form.titulo }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-white">Local</label>
+                                {{ form.local }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-white">Descrição Detalhada</label>
+                                {{ form.descricao }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-white">Capa do Evento (Opcional)</label>
+                                {{ form.imagem_capa }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-5 bg-dark-subtle rounded p-3 border border-secondary">
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label text-white">Total de Vagas</label>
+                                    {{ form.vagas_totais }}
+                                </div>
+                                <div class="col-6 d-flex align-items-end pb-2">
+                                    <div class="form-check form-switch">
+                                        {{ form.aberto_comunidade }}
+                                        <label class="form-check-label text-white small">Comunidade externa?</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="text-success border-bottom border-secondary pb-1 mb-3 small text-uppercase">Período de Inscrição</h6>
+                            <div class="mb-3">
+                                <label class="form-label text-white-50 small">Início das Inscrições</label>
+                                {{ form.inicio_inscricoes }}
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label text-white-50 small">Fim das Inscrições</label>
+                                {{ form.fim_inscricoes }}
+                            </div>
+
+                            <h6 class="text-success border-bottom border-secondary pb-1 mb-3 small text-uppercase">Realização do Evento</h6>
+                            <div class="mb-3">
+                                <label class="form-label text-white-50 small">Data/Hora de Início</label>
+                                {{ form.data_inicio }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-white-50 small">Data/Hora de Término</label>
+                                {{ form.data_fim }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 mt-4">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 text-success text-uppercase small">Perguntas Personalizadas (Opcional)</h6>
+            <div class="form-check form-switch m-0">
+                {{ form.tem_questionario }}
+                <label class="form-check-label text-white small" for="switchQuestionario">Habilitar Questionário</label>
+            </div>
+        </div>
+        
+        <div class="card-body bg-dark-subtle" id="painelQuestionario" style="display: none;">
+            {{ form.questionario }} <div class="row align-items-end mb-3 border-bottom border-secondary pb-3">
+                <div class="col-md-4">
+                    <label class="form-label text-white small fw-bold">Enunciado da Pergunta</label>
+                    <input type="text" id="q_enunciado" class="form-control form-control-sm border-secondary" placeholder="Ex: Qual sua restrição alimentar?">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-white small fw-bold">Tipo de Resposta</label>
+                    <select id="q_tipo" class="form-select form-select-sm border-secondary">
+                        <option value="texto">Texto Livre</option>
+                        <option value="escolha">Múltipla Escolha</option>
+                    </select>
+                </div>
+                <div class="col-md-3" id="div_opcoes" style="display: none;">
+                    <label class="form-label text-white small fw-bold">Opções (separadas por vírgula)</label>
+                    <input type="text" id="q_opcoes" class="form-control form-control-sm border-secondary" placeholder="Ex: Vegano, Sem Lactose, Nenhuma">
+                </div>
+                <div class="col-md-2 d-flex flex-column justify-content-end">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input border-secondary" type="checkbox" id="q_obrigatoria">
+                        <label class="form-check-label text-white small fw-bold">Obrigatória?</label>
+                    </div>
+                    <button type="button" id="btnAdicionarPergunta" class="btn btn-sm btn-success w-100">Adicionar</button>
+                </div>
+            </div>
+
+            <ul class="list-group" id="listaPerguntas"></ul>
+        </div>
+    </div>
+</div>
+
+                    <div class="mt-4 pt-3 border-top border-secondary d-flex justify-content-end gap-2">
+                        <a href="{% url 'painel_dashboard' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary px-4">Salvar Evento</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const switchQuestionario = document.getElementById('switchQuestionario');
+    const painelQuestionario = document.getElementById('painelQuestionario');
+    const inputJson = document.getElementById('jsonQuestionario');
+    
+    const qTipo = document.getElementById('q_tipo');
+    const divOpcoes = document.getElementById('div_opcoes');
+    const btnAdd = document.getElementById('btnAdicionarPergunta');
+    const listaPerguntas = document.getElementById('listaPerguntas');
+    
+    // Array de objetos que guardará as perguntas na memória
+    let questionario = [];
+
+    // Toggla a visibilidade do painel
+    switchQuestionario.addEventListener('change', function() {
+        painelQuestionario.style.display = this.checked ? 'block' : 'none';
+    });
+
+    // Mostra/Oculta o campo de opções dependendo se é texto ou múltipla escolha
+    qTipo.addEventListener('change', function() {
+        divOpcoes.style.display = this.value === 'escolha' ? 'block' : 'none';
+    });
+
+    // Função para renderizar a lista visualmente e atualizar o input oculto
+    function atualizarLista() {
+        listaPerguntas.innerHTML = '';
+        questionario.forEach((q, index) => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item bg-dark text-light border-secondary d-flex justify-content-between align-items-center';
+            
+            let badgeTipo = q.tipo === 'texto' ? '<span class="badge bg-secondary">Texto Livre</span>' : '<span class="badge bg-info text-white">Múltipla Escolha</span>';
+            let badgeObrigatoria = q.obrigatoria ? '<span class="badge bg-danger ms-1">Obrigatória</span>' : '<span class="badge bg-success ms-1">Opcional</span>';
+            let opcoesTexto = q.tipo === 'escolha' ? `<div class="small text-muted mt-1">Opções: ${q.opcoes.join(' | ')}</div>` : '';
+
+            li.innerHTML = `
+                <div>
+                    <strong>${q.enunciado}</strong> ${badgeTipo} ${badgeObrigatoria}
+                    ${opcoesTexto}
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerPergunta(${index})">X</button>
+            `;
+            listaPerguntas.appendChild(li);
+        });
+
+        // Converte o array para string e salva no formulário do Django
+        inputJson.value = JSON.stringify(questionario);
+    }
+
+    // Função global para o botão de "X" remover a pergunta
+    window.removerPergunta = function(index) {
+        questionario.splice(index, 1);
+        atualizarLista();
+    };
+
+    // Adicionar nova pergunta
+    btnAdd.addEventListener('click', function() {
+        const enunciado = document.getElementById('q_enunciado').value.trim();
+        const tipo = qTipo.value;
+        const obrigatoria = document.getElementById('q_obrigatoria').checked;
+        let opcoes = [];
+
+        if (!enunciado) {
+            alert('Por favor, digite o enunciado da pergunta.');
+            return;
+        }
+
+        if (tipo === 'escolha') {
+            const opcoesRaw = document.getElementById('q_opcoes').value;
+            opcoes = opcoesRaw.split(',').map(o => o.trim()).filter(o => o !== '');
+            if (opcoes.length < 2) {
+                alert('Para múltipla escolha, forneça pelo menos duas opções separadas por vírgula.');
+                return;
+            }
+        }
+
+        // Adiciona ao array com um ID único gerado na hora
+        questionario.push({
+            id: 'pergunta_' + Date.now(),
+            enunciado: enunciado,
+            tipo: tipo,
+            obrigatoria: obrigatoria,
+            opcoes: opcoes
+        });
+
+        // Limpa os campos
+        document.getElementById('q_enunciado').value = '';
+        document.getElementById('q_opcoes').value = '';
+        document.getElementById('q_obrigatoria').checked = false;
+        
+        atualizarLista();
+    });
+});
+</script>
+{% endblock %}
