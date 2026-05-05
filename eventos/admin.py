@@ -1,6 +1,6 @@
 import openpyxl
 from django.http import HttpResponse
-from django.contrib import admin
+from django.contrib import admin, messages
 from .models import Evento, Inscricao
 
 @admin.action(description='Exportar inscrições para planilha de certificados')
@@ -53,3 +53,31 @@ class EventoAdmin(admin.ModelAdmin):
     list_display = ('titulo', 'data_inicio', 'vagas_totais', 'aberto_comunidade')
     list_filter = ('aberto_comunidade', 'data_inicio')
     search_fields = ('titulo', 'descricao')
+    actions = ['verificar_duplicidade']
+
+    @admin.action(description='Verificar duplicidade de inscritos (Selecione 2 eventos)')
+    def verificar_duplicidade(self, request, queryset):
+        # Trava para garantir que o usuário selecione apenas 2 eventos
+        if queryset.count() != 2:
+            self.message_user(request, "Por favor, selecione exatamente DOIS eventos para comparar.", level=messages.ERROR)
+            return
+
+        evento1, evento2 = queryset[0], queryset[1]
+        
+        # Pegamos apenas os CPFs de cada evento e transformamos em "sets" (conjuntos)
+        cpfs_e1 = set(evento1.inscricoes.values_list('cpf', flat=True))
+        cpfs_e2 = set(evento2.inscricoes.values_list('cpf', flat=True))
+        
+        # O Python cruza os dados e acha quem está nos dois grupos instantaneamente
+        duplicados = cpfs_e1.intersection(cpfs_e2)
+        
+        if not duplicados:
+            self.message_user(request, f"Tudo limpo! Nenhuma duplicidade encontrada entre '{evento1.titulo}' e '{evento2.titulo}'.", level=messages.SUCCESS)
+        else:
+            # Pega os nomes das pessoas duplicadas (usando o evento1 como base de busca)
+            inscritos_duplicados = evento1.inscricoes.filter(cpf__in=duplicados)
+            nomes = [insc.nome_completo for insc in inscritos_duplicados]
+            
+            # Monta a mensagem de aviso
+            mensagem = f"Atenção! {len(duplicados)} pessoa(s) inscrita(s) em ambos os eventos: {', '.join(nomes)}."
+            self.message_user(request, mensagem, level=messages.WARNING)
