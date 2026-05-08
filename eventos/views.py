@@ -12,6 +12,16 @@ import resend
 from django.conf import settings
 from django.utils import timezone
 import pytz
+from django.http import JsonResponse
+from django.db import transaction
+from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.decorators import permission_required
+
+def e_avaliador(user):
+    # Primeiro garante que está logado, depois verifica o grupo ou se é admin
+    if not user.is_authenticated:
+        return False
+    return user.groups.filter(name='Avaliadores').exists() or user.is_superuser
 
 def lista_eventos(request):
     todos_eventos = Evento.objects.all().order_by('-data_inicio')
@@ -47,7 +57,6 @@ def inscricao_evento(request, evento_id):
     evento = get_object_or_404(Evento, id=evento_id)
     agora = timezone.now()
     
-    # --- TRAVAS DE PERÍODO DE INSCRIÇÃO ---
     if evento.inicio_inscricoes and agora < evento.inicio_inscricoes:
         messages.warning(request, 'As inscrições para este evento ainda não começaram.')
         return redirect('lista_eventos')
@@ -55,65 +64,105 @@ def inscricao_evento(request, evento_id):
     if evento.fim_inscricoes and agora > evento.fim_inscricoes:
         messages.warning(request, 'As inscrições para este evento já foram encerradas.')
         return redirect('lista_eventos')
-    # --------------------------------------
     
     if request.method == 'POST':
-        # Coleta os dados enviados pelo formulário HTML
         nome = request.POST.get('nome_completo')
         email = request.POST.get('email')
         cpf = request.POST.get('cpf')
-        
-        # --- BLOQUEIO DE DUPLICATA ---
-        if Inscricao.objects.filter(evento=evento, cpf=cpf).exists():
-            messages.warning(request, f'Já existe uma inscrição realizada com o CPF {cpf} para este evento.')
-            return redirect('inscricao_evento', evento_id=evento.id)
-        
-        # O checkbox de vínculo retornará 'on' se estiver marcado
         vinculo = request.POST.get('tem_vinculo') == 'on'
-        matricula = request.POST.get('matricula')
-        curso_turma = request.POST.get('curso_turma')
-        # --- NOVA VALIDAÇÃO DE SEGURANÇA ---
-        # 1. Tentar se inscrever sem vínculo num evento restrito
+        matricula = request.POST.get('matricula', '')
+        curso_turma = request.POST.get('curso_turma', '')
+        
+        # --- VERIFICAÇÃO AJAX ---
+        if request.POST.get('ajax_check') == '1':
+            if Inscricao.objects.filter(evento=evento, cpf=cpf).exists():
+                return JsonResponse({'status': 'erro', 'mensagem': 'Já existe uma inscrição realizada com este CPF para este evento.'})
+                
+            if getattr(evento, 'grupo', None):
+                inscricao_existente = Inscricao.objects.filter(evento__grupo=evento.grupo, cpf=cpf).first()
+                if inscricao_existente:
+                    divergencias = []
+                    if inscricao_existente.nome_completo != nome:
+                        divergencias.append({'campo': 'Nome', 'antigo': inscricao_existente.nome_completo, 'novo': nome})
+                    if inscricao_existente.email != email:
+                        divergencias.append({'campo': 'E-mail', 'antigo': inscricao_existente.email, 'novo': email})
+                    
+                    banco_matricula = inscricao_existente.matricula or ''
+                    banco_curso = inscricao_existente.curso_turma or ''
+                    
+                    if banco_matricula != matricula:
+                        divergencias.append({'campo': 'Matrícula', 'antigo': banco_matricula or '(Vazio)', 'novo': matricula or '(Vazio)'})
+                    if banco_curso != curso_turma:
+                        divergencias.append({'campo': 'Curso/Setor', 'antigo': banco_curso or '(Vazio)', 'novo': curso_turma or '(Vazio)'})
+
+                    return JsonResponse({
+                        'status': 'conflito_grupo', 
+                        'evento_antigo': inscricao_existente.evento.titulo,
+                        'divergencias': divergencias
+                    })
+            return JsonResponse({'status': 'ok'})
+        # ------------------------
+
+        # --- EXECUÇÃO FINAL DO POST ---
+        
+        # 🚨 BLOQUEIO DE SEGURANÇA FINAL (O que estava faltando!) 🚨
+        if Inscricao.objects.filter(evento=evento, cpf=cpf).exists():
+            messages.error(request, 'Operação cancelada: Já existe uma inscrição ativa para este CPF neste evento.')
+            return redirect('inscricao_evento', evento_id=evento.id)
+
+        confirmar_transferencia = request.POST.get('confirmar_transferencia') == '1'
+        atualizar_dados = request.POST.get('atualizar_dados') == '1'
+
+        if getattr(evento, 'grupo', None):
+            inscricao_existente = Inscricao.objects.filter(evento__grupo=evento.grupo, cpf=cpf).first()
+            if inscricao_existente and confirmar_transferencia:
+                inscricao_existente.evento = evento
+                inscricao_existente.status = 'PENDENTE'
+                
+                if atualizar_dados:
+                    inscricao_existente.nome_completo = nome
+                    inscricao_existente.email = email
+                    inscricao_existente.tem_vinculo_universidade = vinculo
+                    inscricao_existente.matricula = matricula
+                    inscricao_existente.curso_turma = curso_turma
+                    
+                    respostas_dict = {}
+                    if evento.tem_questionario and evento.questionario:
+                        for pergunta in evento.questionario:
+                            respostas_dict[pergunta['id']] = request.POST.get(pergunta['id'], '')
+                    inscricao_existente.respostas_questionario = respostas_dict
+
+                inscricao_existente.save()
+                messages.success(request, f'Sua inscrição foi transferida com sucesso para: {evento.titulo}.')
+                return redirect('lista_eventos')
+
         if not evento.aberto_comunidade and not vinculo:
             messages.error(request, 'Operação negada. Este evento é exclusivo para a comunidade acadêmica.')
             return redirect('inscricao_evento', evento_id=evento.id)
         
-        # 2. Afirmar que tem vínculo, mas deixar os dados em branco
         if vinculo and (not matricula or not curso_turma):
             messages.error(request, 'Por favor, preencha sua matrícula e curso/setor.')
             return redirect('inscricao_evento', evento_id=evento.id)
-        # -----------------------------------
+        
         respostas_dict = {}
         if evento.tem_questionario and evento.questionario:
             for pergunta in evento.questionario:
-                q_id = pergunta['id']
-                # Pega a resposta enviada via POST baseada no ID da pergunta
-                respostas_dict[q_id] = request.POST.get(q_id, '')
+                respostas_dict[pergunta['id']] = request.POST.get(pergunta['id'], '')
         
-        # Cria e salva a inscrição no banco de dados
         Inscricao.objects.create(
-            evento=evento,
-            nome_completo=nome,
-            email=email,
-            cpf=cpf,
-            tem_vinculo_universidade=vinculo,
-            matricula=matricula if vinculo else '',
-            curso_turma=curso_turma if vinculo else '',
-            respostas_questionario=respostas_dict # Salva o dicionário como JSON!
+            evento=evento, nome_completo=nome, email=email, cpf=cpf,
+            tem_vinculo_universidade=vinculo, matricula=matricula if vinculo else '',
+            curso_turma=curso_turma if vinculo else '', respostas_questionario=respostas_dict
         )
-        
-        # Mensagem de sucesso para o usuário
         messages.success(request, 'Sua inscrição foi registrada com sucesso, aguarde o email de confirmação!')
         return redirect('lista_eventos')
 
     return render(request, 'eventos/form_inscricao.html', {'evento': evento})
 
-@login_required
+@user_passes_test(e_avaliador)
 def painel_dashboard(request):
     # Verifica se o usuário tem permissão de staff (equipe)
-    if not request.user.is_staff:
-        messages.error(request, 'Acesso negado. Você não tem permissão para ver esta página.')
-        return redirect('lista_eventos')
+
 
     # Anota (calcula) o total de inscrições para cada evento
     eventos = Evento.objects.annotate(total_inscricoes=Count('inscricoes')).order_by('-data_inicio')
@@ -134,6 +183,11 @@ def painel_dashboard(request):
 
 @login_required
 def exportar_inscricoes_excel(request, evento_id):
+    if not request.user.is_staff:
+
+        messages.error(request, 'Acesso negado. Você não tem permissão para ver esta página.')
+
+        return redirect('painel_dashboard')
     # Busca o evento específico
     evento = get_object_or_404(Evento, id=evento_id)
     
@@ -168,10 +222,9 @@ def exportar_inscricoes_excel(request, evento_id):
     wb.save(response)
     return response
 
-import resend
-from django.conf import settings
 
-@login_required
+
+@user_passes_test(e_avaliador)
 def gerenciar_inscricoes(request, evento_id):
     evento = get_object_or_404(Evento, id=evento_id)
     inscricoes = evento.inscricoes.all().order_by('-data_inscricao')
@@ -245,10 +298,8 @@ def gerenciar_inscricoes(request, evento_id):
     return render(request, 'eventos/gerenciar_inscricoes.html', context)
 
 @login_required
+@permission_required('eventos.add_evento', raise_exception=True)
 def novo_evento(request):
-    if not request.user.is_staff:
-        messages.error(request, 'Acesso negado.')
-        return redirect('lista_eventos')
 
     if request.method == 'POST':
         form = EventoForm(request.POST, request.FILES) # request.FILES é vital para a foto!
@@ -261,7 +312,7 @@ def novo_evento(request):
 
     return render(request, 'eventos/form_evento.html', {'form': form, 'titulo_pagina': 'Criar Novo Evento'})
 
-@login_required
+@user_passes_test(e_avaliador)
 def lista_presenca(request, evento_id):
     evento = get_object_or_404(Evento, id=evento_id)
     # Filtra apenas os aprovados e ordena por nome
@@ -272,3 +323,62 @@ def lista_presenca(request, evento_id):
         'inscricoes': inscricoes,
     }
     return render(request, 'eventos/lista_presenca.html', context)
+
+
+@user_passes_test(e_avaliador)
+def painel_conflitos(request):
+    # 1. Filtra os CPFs que estão em mais de um evento do mesmo grupo e NÃO estão recusados
+    conflitos_brutos = Inscricao.objects.exclude(status='RECUSADA')\
+        .values('cpf', 'evento__grupo__nome')\
+        .annotate(total=Count('id'))\
+        .filter(total__gt=1, evento__grupo__isnull=False)
+
+    conflitos_detalhados = []
+    for c in conflitos_brutos:
+        # 2. Busca os detalhes dessas inscrições, também EXCLUINDO as já recusadas
+        inscricoes = Inscricao.objects.filter(
+            cpf=c['cpf'], 
+            evento__grupo__nome=c['evento__grupo__nome']
+        ).exclude(status='RECUSADA').order_by('status')
+        
+        conflitos_detalhados.append({
+            'cpf': c['cpf'],
+            'grupo': c['evento__grupo__nome'],
+            'inscricoes': inscricoes
+        })
+
+    return render(request, 'eventos/painel_conflitos.html', {'conflitos': conflitos_detalhados})
+
+
+@user_passes_test(e_avaliador)
+def resolver_conflito(request, inscricao_id):
+    if request.method == 'POST':
+        inscricao_mantida = get_object_or_404(Inscricao, id=inscricao_id)
+        grupo = inscricao_mantida.evento.grupo
+        cpf = inscricao_mantida.cpf
+
+        if not grupo:
+            messages.error(request, "Erro: Esta inscrição não pertence a um grupo.")
+            return redirect('painel_conflitos')
+
+        # O transaction.atomic() garante que se der erro em uma linha, ele desfaz tudo
+        with transaction.atomic():
+            # 1. Aprova a inscrição que o avaliador escolheu
+            #inscricao_mantida.status = 'APROVADA' 
+            #inscricao_mantida.save()
+
+            # 2. Busca TODAS as outras inscrições do mesmo CPF naquele mesmo grupo
+            # que não sejam a que acabamos de manter, e que ainda não estejam recusadas
+            outras_inscricoes = Inscricao.objects.filter(
+                cpf=cpf,
+                evento__grupo=grupo
+            ).exclude(id=inscricao_id).exclude(status='RECUSADA')
+
+            # 3. Altera o status das outras para RECUSADA
+            for outra in outras_inscricoes:
+                outra.status = 'RECUSADA'
+                outra.save()
+
+        messages.success(request, f"Conflito resolvido! A inscrição na turma '{inscricao_mantida.evento.titulo}' permanece como pendente para análise e as duplicatas foram recusadas.")
+
+    return redirect('painel_conflitos')

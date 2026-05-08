@@ -65,9 +65,11 @@
                                 <a href="{% url 'gerenciar_inscricoes' evento.id %}" class="btn btn-sm btn-outline-info" title="Gerenciar Inscrições">
                                     Ver Inscrições
                                 </a>
+                                {% if user.is_superuser %}
                                 <a href="{% url 'exportar_excel' evento.id %}" class="btn btn-sm btn-outline-success" title="Exportar Planilha para Certificados">
                                     Exportar Excel
                                 </a>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>

@@ -1,7 +1,7 @@
 import openpyxl
 from django.http import HttpResponse
 from django.contrib import admin, messages
-from .models import Evento, Inscricao
+from .models import Evento, Inscricao, GrupoEvento
 
 @admin.action(description='Exportar inscrições para planilha de certificados')
 def exportar_para_excel(modeladmin, request, queryset):
@@ -50,7 +50,7 @@ class InscricaoAdmin(admin.ModelAdmin):
 
 @admin.register(Evento)
 class EventoAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'data_inicio', 'vagas_totais', 'aberto_comunidade')
+    list_display = ('titulo', 'data_inicio', 'vagas_totais', 'aberto_comunidade', 'grupo')
     list_filter = ('aberto_comunidade', 'data_inicio')
     search_fields = ('titulo', 'descricao')
     actions = ['verificar_duplicidade']
@@ -81,3 +81,8 @@ class EventoAdmin(admin.ModelAdmin):
             # Monta a mensagem de aviso
             mensagem = f"Atenção! {len(duplicados)} pessoa(s) inscrita(s) em ambos os eventos: {', '.join(nomes)}."
             self.message_user(request, mensagem, level=messages.WARNING)
+
+@admin.register(GrupoEvento)
+class GrupoEventoAdmin(admin.ModelAdmin):
+    list_display = ('nome',)
+    search_fields = ('nome',)

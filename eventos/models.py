@@ -1,6 +1,18 @@
 from django.db import models
 from django.utils import timezone
 
+
+class GrupoEvento(models.Model):
+    nome = models.CharField(max_length=200, help_text="Ex: Oficina de Python (Engloba Turma Manhã e Turma Tarde)")
+    descricao = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.nome
+
+    class Meta:
+        verbose_name = 'Grupo de Evento'
+        verbose_name_plural = 'Grupos de Eventos'
+
 class Evento(models.Model):
     titulo = models.CharField(max_length=200)
     descricao = models.TextField()
@@ -13,7 +25,7 @@ class Evento(models.Model):
     # --- NOVOS CAMPOS: Período de Inscrição ---
     inicio_inscricoes = models.DateTimeField(verbose_name="Início das Inscrições", null=True)
     fim_inscricoes = models.DateTimeField(verbose_name="Fim das Inscrições", null=True)
-
+    grupo = models.ForeignKey(GrupoEvento, on_delete=models.SET_NULL, null=True, blank=True, related_name='eventos', help_text="Selecione um grupo se este evento tiver outras turmas/horários correlacionados.")
     # --- Período de Realização do Evento ---
     data_inicio = models.DateTimeField(verbose_name="Início do Evento")
     data_fim = models.DateTimeField(verbose_name="Término do Evento")
