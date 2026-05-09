@@ -320,11 +320,14 @@ def gerenciar_inscricoes(request, evento_id):
     evento = get_object_or_404(Evento, id=evento_id)
     agora = timezone.now()
     
-    # Verifica se as inscrições já foram encerradas
-    inscricoes_encerradas = evento.fim_inscricoes and agora > evento.fim_inscricoes
+    # 1. Checa se o prazo acabou (Apenas data)
+    prazo_encerrado = evento.fim_inscricoes and agora > evento.fim_inscricoes
 
-    # Se encerrou, exibe APENAS os aprovados. Se não, exibe todos.
-    if inscricoes_encerradas:
+    # 2. 🚨 CORREÇÃO: Só bloqueia o avaliador se o evento for AUTOMÁTICO e o prazo acabou
+    bloquear_avaliador = prazo_encerrado and evento.aprovacao_automatica
+
+    # Se estiver bloqueado (automático + encerrado), exibe APENAS os aprovados. Se não, exibe todos.
+    if bloquear_avaliador:
         inscricoes = evento.inscricoes.filter(status='APROVADA').order_by('nome_completo')
     else:
         inscricoes = evento.inscricoes.all().order_by('-data_inscricao')
@@ -347,9 +350,9 @@ def gerenciar_inscricoes(request, evento_id):
 
     # Processa a mudança de status
     if request.method == 'POST':
-        # 🚨 TRAVA DE BACKEND: Impede alterações se o prazo acabou
-        if inscricoes_encerradas:
-            messages.error(request, 'Operação negada: O período de inscrições foi encerrado. Não é mais possível alterar o status das vagas.')
+        # 🚨 TRAVA DE BACKEND CORRIGIDA
+        if bloquear_avaliador:
+            messages.error(request, 'Operação negada: A lista deste evento foi fechada automaticamente.')
             return redirect('gerenciar_inscricoes', evento_id=evento.id)
 
         inscricao_id = request.POST.get('inscricao_id')
@@ -378,9 +381,13 @@ def gerenciar_inscricoes(request, evento_id):
     context = {
         'evento': evento,
         'inscricoes': inscricoes,
-        'inscricoes_encerradas': inscricoes_encerradas, # Passamos a flag para o template
+        'bloquear_avaliador': bloquear_avaliador, # Passamos a trava real
+        'prazo_encerrado': prazo_encerrado,       # Passamos a data para avisos visuais
     }
     return render(request, 'eventos/gerenciar_inscricoes.html', context)
+    
+
+
 @login_required
 @permission_required('eventos.add_evento', raise_exception=True)
 def novo_evento(request):

@@ -14,14 +14,21 @@
     </div>
 </div>
 
-<!-- Banner de Aviso se estiver encerrado -->
-{% if inscricoes_encerradas %}
-<div class="alert alert-dark border-warning text-warning d-flex align-items-center" role="alert">
-    <i class="bi bi-lock-fill fs-4 me-3"></i>
-    <div>
-        <strong>Inscrições Encerradas!</strong> O prazo de inscrição para este evento chegou ao fim. As alterações de vagas foram bloqueadas.
+<!-- Banners Dinâmicos de Aviso -->
+{% if bloquear_avaliador %}
+    <div class="alert alert-dark border-warning text-warning d-flex align-items-center shadow-sm" role="alert">
+        <i class="bi bi-lock-fill fs-4 me-3"></i>
+        <div>
+            <strong>Lista Fechada!</strong> O prazo deste evento chegou ao fim. As alterações foram bloqueadas e a lista exibe apenas os aprovados.
+        </div>
     </div>
-</div>
+{% elif prazo_encerrado %}
+    <div class="alert alert-dark border-info text-info d-flex align-items-center shadow-sm" role="alert">
+        <i class="bi bi-info-circle fs-4 me-3"></i>
+        <div>
+            <strong>Período de Avaliação:</strong> As inscrições para este evento foram encerradas ao público. A equipe já pode finalizar a aprovação das vagas pendentes.
+        </div>
+    </div>
 {% endif %}
 
 <div class="card border-secondary shadow">
@@ -71,8 +78,8 @@
                                 👁️ Detalhes
                             </button>
 
-                            <!-- Trava Visual: Só exibe formulário se não estiver encerrado -->
-                            {% if not inscricoes_encerradas %}
+                            <!-- 🚨 CORREÇÃO DA TRAVA VISUAL -->
+                            {% if not bloquear_avaliador %}
                                 <form method="POST" class="d-inline">
                                     {% csrf_token %}
                                     <input type="hidden" name="inscricao_id" value="{{ inscricao.id }}">
@@ -90,13 +97,11 @@
                                     {% endif %}
                                 </form>
                             {% else %}
-                                <!-- Ícone indicando bloqueio -->
                                 <button type="button" class="btn btn-sm btn-outline-secondary disabled" title="Ações bloqueadas">
                                     <i class="bi bi-lock"></i>
                                 </button>
                             {% endif %}
 
-                            <!-- Modal de Detalhes -->
                             <div class="modal fade text-start" id="modalDetalhes{{ inscricao.id }}" tabindex="-1" aria-labelledby="modalLabel{{ inscricao.id }}" aria-hidden="true">
                                 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
                                     <div class="modal-content bg-dark border-success">
@@ -141,7 +146,7 @@
                     {% empty %}
                     <tr>
                         <td colspan="5" class="text-center py-5 text-muted">
-                            {% if inscricoes_encerradas %}
+                            {% if bloquear_avaliador %}
                                 Nenhuma inscrição foi aprovada para este evento.
                             {% else %}
                                 Nenhuma inscrição registrada para este evento ainda.
