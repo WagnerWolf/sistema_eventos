@@ -14,6 +14,16 @@
     </div>
 </div>
 
+<!-- Banner de Aviso se estiver encerrado -->
+{% if inscricoes_encerradas %}
+<div class="alert alert-dark border-warning text-warning d-flex align-items-center" role="alert">
+    <i class="bi bi-lock-fill fs-4 me-3"></i>
+    <div>
+        <strong>Inscrições Encerradas!</strong> O prazo de inscrição para este evento chegou ao fim. As alterações de vagas foram bloqueadas.
+    </div>
+</div>
+{% endif %}
+
 <div class="card border-secondary shadow">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -24,7 +34,7 @@
                         <th>Vínculo / Matrícula</th>
                         <th>Data da Inscrição</th>
                         <th class="text-center">Status</th>
-                        <th class="text-end pe-4">Ações Rápidas</th>
+                        <th class="text-end pe-4">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -61,26 +71,35 @@
                                 👁️ Detalhes
                             </button>
 
-                            <form method="POST" class="d-inline">
-                                {% csrf_token %}
-                                <input type="hidden" name="inscricao_id" value="{{ inscricao.id }}">
-                                
-                                {% if inscricao.status != 'APROVADA' %}
-                                    <button type="submit" name="novo_status" value="APROVADA" class="btn btn-sm btn-outline-success" title="Aprovar">✓</button>
-                                {% endif %}
-                                
-                                {% if inscricao.status != 'LISTA_ESPERA' %}
-                                    <button type="submit" name="novo_status" value="LISTA_ESPERA" class="btn btn-sm btn-outline-warning" title="Mover para Espera">⏱</button>
-                                {% endif %}
+                            <!-- Trava Visual: Só exibe formulário se não estiver encerrado -->
+                            {% if not inscricoes_encerradas %}
+                                <form method="POST" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="inscricao_id" value="{{ inscricao.id }}">
+                                    
+                                    {% if inscricao.status != 'APROVADA' %}
+                                        <button type="submit" name="novo_status" value="APROVADA" class="btn btn-sm btn-outline-success" title="Aprovar">✓</button>
+                                    {% endif %}
+                                    
+                                    {% if inscricao.status != 'LISTA_ESPERA' %}
+                                        <button type="submit" name="novo_status" value="LISTA_ESPERA" class="btn btn-sm btn-outline-warning" title="Mover para Espera">⏱</button>
+                                    {% endif %}
 
-                                {% if inscricao.status != 'RECUSADA' %}
-                                    <button type="submit" name="novo_status" value="RECUSADA" class="btn btn-sm btn-outline-danger" title="Recusar">✕</button>
-                                {% endif %}
-                            </form>
+                                    {% if inscricao.status != 'RECUSADA' %}
+                                        <button type="submit" name="novo_status" value="RECUSADA" class="btn btn-sm btn-outline-danger" title="Recusar">✕</button>
+                                    {% endif %}
+                                </form>
+                            {% else %}
+                                <!-- Ícone indicando bloqueio -->
+                                <button type="button" class="btn btn-sm btn-outline-secondary disabled" title="Ações bloqueadas">
+                                    <i class="bi bi-lock"></i>
+                                </button>
+                            {% endif %}
 
-                            <div class="modal fade" id="modalDetalhes{{ inscricao.id }}" tabindex="-1" aria-labelledby="modalLabel{{ inscricao.id }}" aria-hidden="true">
+                            <!-- Modal de Detalhes -->
+                            <div class="modal fade text-start" id="modalDetalhes{{ inscricao.id }}" tabindex="-1" aria-labelledby="modalLabel{{ inscricao.id }}" aria-hidden="true">
                                 <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-                                    <div class="modal-content bg-dark border-success text-start">
+                                    <div class="modal-content bg-dark border-success">
                                         <div class="modal-header border-success">
                                             <h1 class="modal-title fs-5 text-primary" id="modalLabel{{ inscricao.id }}">Detalhes da Inscrição</h1>
                                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -117,12 +136,16 @@
                                     </div>
                                 </div>
                             </div>
-                            </td>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
                         <td colspan="5" class="text-center py-5 text-muted">
-                            Nenhuma inscrição registrada para este evento ainda.
+                            {% if inscricoes_encerradas %}
+                                Nenhuma inscrição foi aprovada para este evento.
+                            {% else %}
+                                Nenhuma inscrição registrada para este evento ainda.
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

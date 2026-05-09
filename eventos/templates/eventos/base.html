@@ -61,7 +61,11 @@
                 </div>
             </a>
             
+            
             <div class="d-flex align-items-center">
+                <a href="{% url 'consultar_inscricao' %}" class="btn btn-outline-light btn-sm me-2">
+    <i class="bi bi-search me-1"></i> Minhas Inscrições
+</a>
                 {% if user.is_authenticated %}
                     <span class="text-light me-3 small d-none d-md-inline">Olá, {{ user.username }}</span>
                     
@@ -89,6 +93,7 @@
                         {% csrf_token %}
                         <button type="submit" class="btn btn-outline-danger btn-sm">Sair</button>
                     </form>
+                    
                 {% else %}
                     <a href="{% url 'login' %}" class="btn btn-outline-secondary btn-sm">Acesso Equipe</a>
                 {% endif %}

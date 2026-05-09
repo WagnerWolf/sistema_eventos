@@ -30,6 +30,12 @@ class Evento(models.Model):
     data_inicio = models.DateTimeField(verbose_name="Início do Evento")
     data_fim = models.DateTimeField(verbose_name="Término do Evento")
 
+    aprovacao_automatica = models.BooleanField(
+        default=False,
+        verbose_name="Aprovação Automática",
+        help_text="Se ativado, os inscritos serão aprovados automaticamente ao enviarem o formulário."
+    )
+    
     def __str__(self):
         return self.titulo
 

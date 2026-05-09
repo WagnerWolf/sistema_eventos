@@ -8,7 +8,7 @@ class EventoForm(forms.ModelForm):
             'titulo', 'descricao', 'local', 'vagas_totais', 
             'aberto_comunidade', 'inicio_inscricoes', 'fim_inscricoes', 
             'data_inicio', 'data_fim', 'imagem_capa',
-            'tem_questionario', 'questionario'
+            'tem_questionario', 'questionario', 'aprovacao_automatica'
         ]
         # Widgets para garantir que o navegador mostre o seletor de data e hora
         widgets = {
@@ -24,4 +24,5 @@ class EventoForm(forms.ModelForm):
             'imagem_capa': forms.FileInput(attrs={'class': 'form-control'}),
             'tem_questionario': forms.CheckboxInput(attrs={'class': 'form-check-input', 'id': 'switchQuestionario'}),
             'questionario': forms.HiddenInput(attrs={'id': 'jsonQuestionario'}),
+            'aprovacao_automatica': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
         }

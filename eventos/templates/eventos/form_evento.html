@@ -32,18 +32,25 @@
                         </div>
 
                         <div class="col-md-5 bg-dark-subtle rounded p-3 border border-secondary">
-                            <div class="row mb-3">
+                            
+                            <!-- BLOCO ALTERADO: Vagas e Switches -->
+                            <div class="row mb-4">
                                 <div class="col-6">
                                     <label class="form-label text-white">Total de Vagas</label>
                                     {{ form.vagas_totais }}
                                 </div>
-                                <div class="col-6 d-flex align-items-end pb-2">
-                                    <div class="form-check form-switch">
+                                <div class="col-6 d-flex flex-column justify-content-end pb-1">
+                                    <div class="form-check form-switch mb-2">
                                         {{ form.aberto_comunidade }}
-                                        <label class="form-check-label text-white small">Comunidade externa?</label>
+                                        <label class="form-check-label text-white small" style="line-height: 1.2;">Comunidade externa?</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        {{ form.aprovacao_automatica }}
+                                        <label class="form-check-label text-white small" style="line-height: 1.2;">Aprovação Automática?</label>
                                     </div>
                                 </div>
                             </div>
+                            <!-- FIM DO BLOCO ALTERADO -->
 
                             <h6 class="text-success border-bottom border-secondary pb-1 mb-3 small text-uppercase">Período de Inscrição</h6>
                             <div class="mb-3">
@@ -68,45 +75,46 @@
                     </div>
 
                     <div class="col-12 mt-4">
-    <div class="card bg-dark border-secondary">
-        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
-            <h6 class="mb-0 text-success text-uppercase small">Perguntas Personalizadas (Opcional)</h6>
-            <div class="form-check form-switch m-0">
-                {{ form.tem_questionario }}
-                <label class="form-check-label text-white small" for="switchQuestionario">Habilitar Questionário</label>
-            </div>
-        </div>
-        
-        <div class="card-body bg-dark-subtle" id="painelQuestionario" style="display: none;">
-            {{ form.questionario }} <div class="row align-items-end mb-3 border-bottom border-secondary pb-3">
-                <div class="col-md-4">
-                    <label class="form-label text-white small fw-bold">Enunciado da Pergunta</label>
-                    <input type="text" id="q_enunciado" class="form-control form-control-sm border-secondary" placeholder="Ex: Qual sua restrição alimentar?">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label text-white small fw-bold">Tipo de Resposta</label>
-                    <select id="q_tipo" class="form-select form-select-sm border-secondary">
-                        <option value="texto">Texto Livre</option>
-                        <option value="escolha">Múltipla Escolha</option>
-                    </select>
-                </div>
-                <div class="col-md-3" id="div_opcoes" style="display: none;">
-                    <label class="form-label text-white small fw-bold">Opções (separadas por vírgula)</label>
-                    <input type="text" id="q_opcoes" class="form-control form-control-sm border-secondary" placeholder="Ex: Vegano, Sem Lactose, Nenhuma">
-                </div>
-                <div class="col-md-2 d-flex flex-column justify-content-end">
-                    <div class="form-check mb-2">
-                        <input class="form-check-input border-secondary" type="checkbox" id="q_obrigatoria">
-                        <label class="form-check-label text-white small fw-bold">Obrigatória?</label>
-                    </div>
-                    <button type="button" id="btnAdicionarPergunta" class="btn btn-sm btn-success w-100">Adicionar</button>
-                </div>
-            </div>
+                        <div class="card bg-dark border-secondary">
+                            <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 text-success text-uppercase small">Perguntas Personalizadas (Opcional)</h6>
+                                <div class="form-check form-switch m-0">
+                                    {{ form.tem_questionario }}
+                                    <label class="form-check-label text-white small" for="switchQuestionario">Habilitar Questionário</label>
+                                </div>
+                            </div>
+                            
+                            <div class="card-body bg-dark-subtle" id="painelQuestionario" style="display: none;">
+                                {{ form.questionario }} 
+                                <div class="row align-items-end mb-3 border-bottom border-secondary pb-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label text-white small fw-bold">Enunciado da Pergunta</label>
+                                        <input type="text" id="q_enunciado" class="form-control form-control-sm border-secondary" placeholder="Ex: Qual sua restrição alimentar?">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label text-white small fw-bold">Tipo de Resposta</label>
+                                        <select id="q_tipo" class="form-select form-select-sm border-secondary">
+                                            <option value="texto">Texto Livre</option>
+                                            <option value="escolha">Múltipla Escolha</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3" id="div_opcoes" style="display: none;">
+                                        <label class="form-label text-white small fw-bold">Opções (separadas por vírgula)</label>
+                                        <input type="text" id="q_opcoes" class="form-control form-control-sm border-secondary" placeholder="Ex: Vegano, Sem Lactose, Nenhuma">
+                                    </div>
+                                    <div class="col-md-2 d-flex flex-column justify-content-end">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input border-secondary" type="checkbox" id="q_obrigatoria">
+                                            <label class="form-check-label text-white small fw-bold">Obrigatória?</label>
+                                        </div>
+                                        <button type="button" id="btnAdicionarPergunta" class="btn btn-sm btn-success w-100">Adicionar</button>
+                                    </div>
+                                </div>
 
-            <ul class="list-group" id="listaPerguntas"></ul>
-        </div>
-    </div>
-</div>
+                                <ul class="list-group" id="listaPerguntas"></ul>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="mt-4 pt-3 border-top border-secondary d-flex justify-content-end gap-2">
                         <a href="{% url 'painel_dashboard' %}" class="btn btn-outline-secondary">Cancelar</a>
@@ -119,29 +127,37 @@
 </div>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    const switchQuestionario = document.getElementById('switchQuestionario');
+    const switchQuestionario = document.getElementById('switchQuestionario') || document.querySelector('input[name="tem_questionario"]');
     const painelQuestionario = document.getElementById('painelQuestionario');
-    const inputJson = document.getElementById('jsonQuestionario');
+    const inputJson = document.getElementById('jsonQuestionario') || document.querySelector('input[name="questionario"]');
     
     const qTipo = document.getElementById('q_tipo');
     const divOpcoes = document.getElementById('div_opcoes');
     const btnAdd = document.getElementById('btnAdicionarPergunta');
     const listaPerguntas = document.getElementById('listaPerguntas');
     
-    // Array de objetos que guardará as perguntas na memória
     let questionario = [];
 
-    // Toggla a visibilidade do painel
-    switchQuestionario.addEventListener('change', function() {
-        painelQuestionario.style.display = this.checked ? 'block' : 'none';
-    });
+    if(inputJson && inputJson.value) {
+        try {
+            questionario = JSON.parse(inputJson.value);
+            atualizarLista();
+        } catch(e) {}
+    }
 
-    // Mostra/Oculta o campo de opções dependendo se é texto ou múltipla escolha
+    if(switchQuestionario) {
+        switchQuestionario.addEventListener('change', function() {
+            painelQuestionario.style.display = this.checked ? 'block' : 'none';
+        });
+        if(switchQuestionario.checked) {
+            painelQuestionario.style.display = 'block';
+        }
+    }
+
     qTipo.addEventListener('change', function() {
         divOpcoes.style.display = this.value === 'escolha' ? 'block' : 'none';
     });
 
-    // Função para renderizar a lista visualmente e atualizar o input oculto
     function atualizarLista() {
         listaPerguntas.innerHTML = '';
         questionario.forEach((q, index) => {
@@ -162,17 +178,16 @@ document.addEventListener("DOMContentLoaded", function() {
             listaPerguntas.appendChild(li);
         });
 
-        // Converte o array para string e salva no formulário do Django
-        inputJson.value = JSON.stringify(questionario);
+        if(inputJson) {
+            inputJson.value = JSON.stringify(questionario);
+        }
     }
 
-    // Função global para o botão de "X" remover a pergunta
     window.removerPergunta = function(index) {
         questionario.splice(index, 1);
         atualizarLista();
     };
 
-    // Adicionar nova pergunta
     btnAdd.addEventListener('click', function() {
         const enunciado = document.getElementById('q_enunciado').value.trim();
         const tipo = qTipo.value;
@@ -193,7 +208,6 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
 
-        // Adiciona ao array com um ID único gerado na hora
         questionario.push({
             id: 'pergunta_' + Date.now(),
             enunciado: enunciado,
@@ -202,7 +216,6 @@ document.addEventListener("DOMContentLoaded", function() {
             opcoes: opcoes
         });
 
-        // Limpa os campos
         document.getElementById('q_enunciado').value = '';
         document.getElementById('q_opcoes').value = '';
         document.getElementById('q_obrigatoria').checked = false;

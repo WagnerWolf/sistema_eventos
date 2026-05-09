@@ -17,6 +17,67 @@ from django.db import transaction
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.decorators import permission_required
 
+
+def enviar_email_confirmacao(inscricao, evento):
+    """Função centralizada para disparo de e-mail de aprovação"""
+    try:
+        fuso_local = pytz.timezone(settings.TIME_ZONE)
+        data_local = evento.data_inicio.astimezone(fuso_local)
+        
+        resend.api_key = settings.RESEND_API_KEY
+        resend.Emails.send({
+            "from": f"Sistema de Eventos <{settings.EMAIL_REMETENTE}>",
+            "to": [inscricao.email],
+            "subject": f"Inscrição Confirmada: {evento.titulo}",
+            "html": f"""
+                <div style="font-family: sans-serif; border: 1px solid #198754; padding: 20px; border-radius: 10px;">
+                    <h2 style="color: #198754;">Olá, {inscricao.nome_completo}!</h2>
+                    <p>Temos o prazer de informar que sua inscrição para o evento <strong>{evento.titulo}</strong> foi <strong>APROVADA</strong>.</p>
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                        <p style="margin: 0;"><strong>📍 Local:</strong> {evento.local or 'A definir'}</p>
+                        <p style="margin: 5px 0 0 0;"><strong>⏰ Início:</strong> {data_local.strftime('%d/%m/%Y às %H:%M')}</p>
+                    </div>
+                    <p style="font-size: 12px; color: #666;">Este é um e-mail automático, por favor não responda.</p>
+                </div>
+            """
+        })
+    except Exception as e:
+        print(f"Erro ao disparar Resend: {e}")
+
+
+
+def promover_da_lista_espera(evento):
+    """
+    Verifica se há vagas e pessoas na lista de espera.
+    Aprova o mais antigo da fila automaticamente e dispara o e-mail.
+    """
+    # Usamos um loop caso abra mais de uma vaga de uma vez
+    while True:
+        # Pega a quantidade de vagas atualizada (considerando os aprovados atuais)
+        vagas_abertas = getattr(evento, 'vagas_restantes', 0)
+        
+        # Se for um método do model em vez de property, executa ele
+        if callable(vagas_abertas):
+            vagas_abertas = vagas_abertas()
+
+        if vagas_abertas <= 0:
+            break # Evento lotado novamente
+
+        # Busca a inscrição mais antiga da lista de espera
+        proximo = Inscricao.objects.filter(
+            evento=evento, 
+            status='LISTA_ESPERA'
+        ).order_by('data_inscricao').first()
+
+        if proximo:
+            proximo.status = 'APROVADA'
+            proximo.save()
+            
+            # O próximo da fila conseguiu a vaga, manda o e-mail de surpresa boa!
+            enviar_email_confirmacao(proximo, evento)
+        else:
+            break # Não há mais ninguém na lista de espera
+
 def e_avaliador(user):
     # Primeiro garante que está logado, depois verifica o grupo ou se é admin
     if not user.is_authenticated:
@@ -104,8 +165,6 @@ def inscricao_evento(request, evento_id):
         # ------------------------
 
         # --- EXECUÇÃO FINAL DO POST ---
-        
-        # 🚨 BLOQUEIO DE SEGURANÇA FINAL (O que estava faltando!) 🚨
         if Inscricao.objects.filter(evento=evento, cpf=cpf).exists():
             messages.error(request, 'Operação cancelada: Já existe uma inscrição ativa para este CPF neste evento.')
             return redirect('inscricao_evento', evento_id=evento.id)
@@ -117,7 +176,16 @@ def inscricao_evento(request, evento_id):
             inscricao_existente = Inscricao.objects.filter(evento__grupo=evento.grupo, cpf=cpf).first()
             if inscricao_existente and confirmar_transferencia:
                 inscricao_existente.evento = evento
-                inscricao_existente.status = 'PENDENTE'
+                
+                # --- LÓGICA NA TRANSFERÊNCIA ---
+                if evento.aprovacao_automatica:
+                    if getattr(evento, 'vagas_restantes', 1) > 0:
+                        inscricao_existente.status = 'APROVADA'
+                    else:
+                        inscricao_existente.status = 'LISTA_ESPERA'
+                else:
+                    inscricao_existente.status = 'PENDENTE'
+                # --------------------------------
                 
                 if atualizar_dados:
                     inscricao_existente.nome_completo = nome
@@ -133,6 +201,11 @@ def inscricao_evento(request, evento_id):
                     inscricao_existente.respostas_questionario = respostas_dict
 
                 inscricao_existente.save()
+
+                # Dispara o e-mail de imediato caso aprovado automaticamente na transferência
+                if inscricao_existente.status == 'APROVADA':
+                    enviar_email_confirmacao(inscricao_existente, evento)
+
                 messages.success(request, f'Sua inscrição foi transferida com sucesso para: {evento.titulo}.')
                 return redirect('lista_eventos')
 
@@ -149,12 +222,30 @@ def inscricao_evento(request, evento_id):
             for pergunta in evento.questionario:
                 respostas_dict[pergunta['id']] = request.POST.get(pergunta['id'], '')
         
-        Inscricao.objects.create(
+        # --- LÓGICA PARA INSCRIÇÃO NOVA ---
+        status_inicial = 'PENDENTE'
+        if evento.aprovacao_automatica:
+            if getattr(evento, 'vagas_restantes', 1) > 0:
+                status_inicial = 'APROVADA'
+            else:
+                status_inicial = 'LISTA_ESPERA'
+
+        nova_inscricao = Inscricao.objects.create(
             evento=evento, nome_completo=nome, email=email, cpf=cpf,
             tem_vinculo_universidade=vinculo, matricula=matricula if vinculo else '',
-            curso_turma=curso_turma if vinculo else '', respostas_questionario=respostas_dict
+            curso_turma=curso_turma if vinculo else '', respostas_questionario=respostas_dict,
+            status=status_inicial
         )
-        messages.success(request, 'Sua inscrição foi registrada com sucesso, aguarde o email de confirmação!')
+
+        # Dispara o e-mail e ajusta a mensagem com base no status inicial
+        if status_inicial == 'APROVADA':
+            enviar_email_confirmacao(nova_inscricao, evento)
+            messages.success(request, 'Sua inscrição foi registrada e confirmada com sucesso!')
+        elif status_inicial == 'LISTA_ESPERA':
+            messages.warning(request, 'As vagas estão esgotadas. Você foi colocado na Lista de Espera e será aprovado caso alguém desista!')
+        else:
+            messages.success(request, 'Sua inscrição foi registrada com sucesso, aguarde o email de confirmação da equipe!')
+            
         return redirect('lista_eventos')
 
     return render(request, 'eventos/form_inscricao.html', {'evento': evento})
@@ -227,7 +318,16 @@ def exportar_inscricoes_excel(request, evento_id):
 @user_passes_test(e_avaliador)
 def gerenciar_inscricoes(request, evento_id):
     evento = get_object_or_404(Evento, id=evento_id)
-    inscricoes = evento.inscricoes.all().order_by('-data_inscricao')
+    agora = timezone.now()
+    
+    # Verifica se as inscrições já foram encerradas
+    inscricoes_encerradas = evento.fim_inscricoes and agora > evento.fim_inscricoes
+
+    # Se encerrou, exibe APENAS os aprovados. Se não, exibe todos.
+    if inscricoes_encerradas:
+        inscricoes = evento.inscricoes.filter(status='APROVADA').order_by('nome_completo')
+    else:
+        inscricoes = evento.inscricoes.all().order_by('-data_inscricao')
 
     # --- Prepara as respostas cruzando o ID com o Enunciado ---
     perguntas_dict = {}
@@ -247,45 +347,29 @@ def gerenciar_inscricoes(request, evento_id):
 
     # Processa a mudança de status
     if request.method == 'POST':
+        # 🚨 TRAVA DE BACKEND: Impede alterações se o prazo acabou
+        if inscricoes_encerradas:
+            messages.error(request, 'Operação negada: O período de inscrições foi encerrado. Não é mais possível alterar o status das vagas.')
+            return redirect('gerenciar_inscricoes', evento_id=evento.id)
+
         inscricao_id = request.POST.get('inscricao_id')
         novo_status = request.POST.get('novo_status')
         
         if inscricao_id and novo_status in dict(Inscricao.STATUS_CHOICES).keys():
             inscricao = get_object_or_404(Inscricao, id=inscricao_id, evento=evento)
             
-            # Guardamos o status antigo para checar se já estava aprovado
             status_anterior = inscricao.status
             inscricao.status = novo_status
             inscricao.save()
 
             # --- Lógica de Envio de E-mail ---
-            # --- Lógica de Envio de E-mail ---
             if novo_status == 'APROVADA' and status_anterior != 'APROVADA':
-                try:
-                    # Converte a data do banco (UTC) para o fuso local definido no settings
-                    fuso_local = pytz.timezone(settings.TIME_ZONE)
-                    data_local = evento.data_inicio.astimezone(fuso_local)
-                    
-                    resend.api_key = settings.RESEND_API_KEY
-                    resend.Emails.send({
-                        "from": f"Sistema de Eventos <{settings.EMAIL_REMETENTE}>",
-                        "to": [inscricao.email],
-                        "subject": f"Inscrição Confirmada: {evento.titulo}",
-                        "html": f"""
-                            <div style="font-family: sans-serif; border: 1px solid #198754; padding: 20px; border-radius: 10px;">
-                                <h2 style="color: #198754;">Olá, {inscricao.nome_completo}!</h2>
-                                <p>Temos o prazer de informar que sua inscrição para o evento <strong>{evento.titulo}</strong> foi <strong>APROVADA</strong>.</p>
-                                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                                    <p style="margin: 0;"><strong>📍 Local:</strong> {evento.local or 'A definir'}</p>
-                                    <p style="margin: 5px 0 0 0;"><strong>⏰ Início:</strong> {data_local.strftime('%d/%m/%Y às %H:%M')}</p>
-                                </div>
-                                <p style="font-size: 12px; color: #666;">Este é um e-mail automático, por favor não responda.</p>
-                            </div>
-                        """
-                    })
-                except Exception as e:
-                    # Logamos o erro no console para não travar a experiência do admin se o Resend falhar
-                    print(f"Erro ao disparar Resend: {e}")
+                enviar_email_confirmacao(inscricao, evento)
+            # ---------------------------------
+            
+            # --- Lógica da Fila de Espera ---
+            if status_anterior == 'APROVADA' and novo_status != 'APROVADA':
+                promover_da_lista_espera(evento)
             # ---------------------------------
 
             messages.success(request, f'Status de {inscricao.nome_completo} atualizado para {inscricao.get_status_display()}.')
@@ -294,9 +378,9 @@ def gerenciar_inscricoes(request, evento_id):
     context = {
         'evento': evento,
         'inscricoes': inscricoes,
+        'inscricoes_encerradas': inscricoes_encerradas, # Passamos a flag para o template
     }
     return render(request, 'eventos/gerenciar_inscricoes.html', context)
-
 @login_required
 @permission_required('eventos.add_evento', raise_exception=True)
 def novo_evento(request):
@@ -382,3 +466,67 @@ def resolver_conflito(request, inscricao_id):
         messages.success(request, f"Conflito resolvido! A inscrição na turma '{inscricao_mantida.evento.titulo}' permanece como pendente para análise e as duplicatas foram recusadas.")
 
     return redirect('painel_conflitos')
+
+def consultar_inscricao(request):
+    inscricoes = None
+    buscou = False
+    
+    # Mantemos o GET para que o redirecionamento do cancelamento funcione
+    cpf_buscado = request.GET.get('cpf', '').strip()
+    email_buscado = request.GET.get('email', '').strip()
+    anos_usuario = []
+    agora = timezone.now()
+
+    if cpf_buscado and email_buscado:
+        buscou = True
+        # Traz TODAS as inscrições do usuário
+        inscricoes = Inscricao.objects.filter(cpf=cpf_buscado, email=email_buscado).order_by('-data_inscricao')
+        
+        # Coleta dinamicamente apenas os anos em que este usuário específico tem inscrições
+        anos_set = set(i.evento.data_inicio.year for i in inscricoes if i.evento.data_inicio)
+        anos_usuario = sorted(list(anos_set), reverse=True)
+        
+    elif 'cpf' in request.GET or 'email' in request.GET:
+        messages.error(request, 'Por favor, informe o CPF e o E-mail para consultar.')
+
+    return render(request, 'eventos/consultar_inscricao.html', {
+        'inscricoes': inscricoes,
+        'buscou': buscou,
+        'cpf_buscado': cpf_buscado,
+        'email_buscado': email_buscado,
+        'anos_usuario': anos_usuario,
+        'agora': agora,
+    })
+
+def cancelar_inscricao(request, inscricao_id):
+    if request.method == 'POST':
+        cpf = request.POST.get('cpf')
+        email = request.POST.get('email')
+
+        inscricao = get_object_or_404(Inscricao, id=inscricao_id, cpf=cpf, email=email)
+        agora = timezone.now()
+
+        # Monta a URL de volta mantendo a sessão de busca ativa
+        url_retorno = reverse('consultar_inscricao') + f"?cpf={cpf}&email={email}"
+
+        # 🚨 TRAVA DE TEMPO: Impede o cancelamento se as inscrições já fecharam
+        if inscricao.evento.fim_inscricoes and agora > inscricao.evento.fim_inscricoes:
+            messages.error(request, 'O período de inscrições para este evento já foi encerrado. Não é possível desistir da vaga neste momento.')
+            return redirect(url_retorno)
+
+        if inscricao.status in ['APROVADA', 'PENDENTE', 'LISTA_ESPERA']:
+            status_anterior = inscricao.status
+            # Mudando o status de acordo com o seu STATUS_CHOICES
+            inscricao.status = 'RECUSADA' 
+            inscricao.save()
+
+            if status_anterior == 'APROVADA':
+                promover_da_lista_espera(inscricao.evento)
+
+            messages.success(request, f'Sua inscrição para "{inscricao.evento.titulo}" foi cancelada com sucesso.')
+        else:
+            messages.warning(request, 'Esta inscrição já se encontra cancelada ou recusada.')
+
+        return redirect(url_retorno)
+    
+    return redirect('consultar_inscricao')
