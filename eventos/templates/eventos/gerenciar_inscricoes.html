@@ -19,7 +19,7 @@
     <div class="alert alert-dark border-warning text-warning d-flex align-items-center shadow-sm" role="alert">
         <i class="bi bi-lock-fill fs-4 me-3"></i>
         <div>
-            <strong>Lista Fechada!</strong> O prazo deste evento chegou ao fim. As alterações foram bloqueadas e a lista exibe apenas os aprovados.
+            <strong>Lista Fechada!</strong> O prazo deste evento automático chegou ao fim. As alterações foram bloqueadas e a lista exibe apenas os aprovados.
         </div>
     </div>
 {% elif prazo_encerrado %}
@@ -27,6 +27,16 @@
         <i class="bi bi-info-circle fs-4 me-3"></i>
         <div>
             <strong>Período de Avaliação:</strong> As inscrições para este evento foram encerradas ao público. A equipe já pode finalizar a aprovação das vagas pendentes.
+        </div>
+    </div>
+{% endif %}
+
+<!-- 🚨 BANNER DE VAGAS ESGOTADAS -->
+{% if evento_lotado and not bloquear_avaliador %}
+    <div class="alert alert-dark border-danger text-danger d-flex align-items-center shadow-sm" role="alert">
+        <i class="bi bi-x-octagon-fill fs-4 me-3"></i>
+        <div>
+            <strong>Vagas Esgotadas!</strong> O limite de participantes para este evento foi atingido. A aprovação de novos inscritos está bloqueada.
         </div>
     </div>
 {% endif %}
@@ -78,14 +88,18 @@
                                 👁️ Detalhes
                             </button>
 
-                            <!-- 🚨 CORREÇÃO DA TRAVA VISUAL -->
                             {% if not bloquear_avaliador %}
                                 <form method="POST" class="d-inline">
                                     {% csrf_token %}
                                     <input type="hidden" name="inscricao_id" value="{{ inscricao.id }}">
                                     
                                     {% if inscricao.status != 'APROVADA' %}
-                                        <button type="submit" name="novo_status" value="APROVADA" class="btn btn-sm btn-outline-success" title="Aprovar">✓</button>
+                                        <!-- 🚨 TRAVA VISUAL DO BOTÃO DE APROVAR -->
+                                        {% if evento_lotado %}
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Sem vagas disponíveis" disabled>✓</button>
+                                        {% else %}
+                                            <button type="submit" name="novo_status" value="APROVADA" class="btn btn-sm btn-outline-success" title="Aprovar">✓</button>
+                                        {% endif %}
                                     {% endif %}
                                     
                                     {% if inscricao.status != 'LISTA_ESPERA' %}

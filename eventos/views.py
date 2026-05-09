@@ -323,8 +323,14 @@ def gerenciar_inscricoes(request, evento_id):
     # 1. Checa se o prazo acabou (Apenas data)
     prazo_encerrado = evento.fim_inscricoes and agora > evento.fim_inscricoes
 
-    # 2. 🚨 CORREÇÃO: Só bloqueia o avaliador se o evento for AUTOMÁTICO e o prazo acabou
+    # 2. Só bloqueia o avaliador se o evento for AUTOMÁTICO e o prazo acabou
     bloquear_avaliador = prazo_encerrado and evento.aprovacao_automatica
+
+    # 3. 🚨 NOVA TRAVA: Checa se o evento está lotado
+    vagas_restantes = getattr(evento, 'vagas_restantes', 0)
+    if callable(vagas_restantes):
+        vagas_restantes = vagas_restantes()
+    evento_lotado = vagas_restantes <= 0
 
     # Se estiver bloqueado (automático + encerrado), exibe APENAS os aprovados. Se não, exibe todos.
     if bloquear_avaliador:
@@ -350,7 +356,7 @@ def gerenciar_inscricoes(request, evento_id):
 
     # Processa a mudança de status
     if request.method == 'POST':
-        # 🚨 TRAVA DE BACKEND CORRIGIDA
+        # Trava de fechamento de lista
         if bloquear_avaliador:
             messages.error(request, 'Operação negada: A lista deste evento foi fechada automaticamente.')
             return redirect('gerenciar_inscricoes', evento_id=evento.id)
@@ -360,8 +366,14 @@ def gerenciar_inscricoes(request, evento_id):
         
         if inscricao_id and novo_status in dict(Inscricao.STATUS_CHOICES).keys():
             inscricao = get_object_or_404(Inscricao, id=inscricao_id, evento=evento)
-            
             status_anterior = inscricao.status
+            
+            # 🚨 TRAVA DE OVERBOOKING (Backend)
+            if novo_status == 'APROVADA' and status_anterior != 'APROVADA':
+                if evento_lotado:
+                    messages.error(request, 'Erro: Não é possível aprovar. As vagas para este evento já estão esgotadas!')
+                    return redirect('gerenciar_inscricoes', evento_id=evento.id)
+
             inscricao.status = novo_status
             inscricao.save()
 
@@ -381,8 +393,9 @@ def gerenciar_inscricoes(request, evento_id):
     context = {
         'evento': evento,
         'inscricoes': inscricoes,
-        'bloquear_avaliador': bloquear_avaliador, # Passamos a trava real
-        'prazo_encerrado': prazo_encerrado,       # Passamos a data para avisos visuais
+        'bloquear_avaliador': bloquear_avaliador,
+        'prazo_encerrado': prazo_encerrado,
+        'evento_lotado': evento_lotado, # Passando para o template
     }
     return render(request, 'eventos/gerenciar_inscricoes.html', context)
     
