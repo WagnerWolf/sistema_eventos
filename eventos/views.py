@@ -85,7 +85,7 @@ def e_avaliador(user):
     return user.groups.filter(name='Avaliadores').exists() or user.is_superuser
 
 def lista_eventos(request):
-    todos_eventos = Evento.objects.all().order_by('-data_inicio')
+    todos_eventos = Evento.objects.all().order_by('data_inicio', 'id')
     agora = timezone.now()
 
     eventos_ativos_list = [] # Vai guardar tanto os abertos quanto os futuros
@@ -550,3 +550,10 @@ def cancelar_inscricao(request, inscricao_id):
         return redirect(url_retorno)
     
     return redirect('consultar_inscricao')
+
+def link_curto_evento(request, evento_id):
+    # Verifica se o evento existe, se não, dá erro 404
+    evento = get_object_or_404(Evento, id=evento_id)
+    
+    # Redireciona o usuário para a rota oficial e completa de inscrição
+    return redirect('inscricao_evento', evento_id=evento.id)

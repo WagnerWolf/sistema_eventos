@@ -70,6 +70,13 @@
                                     Exportar Excel
                                 </a>
                                 {% endif %}
+                                <div>
+                                <button type="button" class="btn btn-sm btn-outline-warning" 
+                                    onclick="copiarLinkDireto('{{ request.scheme }}://{{ request.get_host }}{% url 'link_curto_evento' evento.id %}')" 
+                                    title="Copiar Link Encurtado">
+                                <i class="bi bi-link-45deg me-1"></i> Link Curto
+                            </button>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -85,4 +92,14 @@
         </div>
     </div>
 </div>
+<script>
+function copiarLinkDireto(url) {
+    navigator.clipboard.writeText(url).then(function() {
+        // Alerta nativo temporário (Você pode substituir por um Toast do Bootstrap se preferir)
+        alert("Link de inscrição copiado para a área de transferência!");
+    }, function(err) {
+        console.error('Erro ao copiar o link: ', err);
+    });
+}
+</script>
 {% endblock %}

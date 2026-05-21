@@ -6,7 +6,11 @@ urlpatterns = [
     path('', views.lista_eventos, name='lista_eventos'),
     path('painel/auditoria-conflitos/', views.painel_conflitos, name='painel_conflitos'),
     path('painel/resolver-conflito/<int:inscricao_id>/', views.resolver_conflito, name='resolver_conflito'),
-    path('evento/<int:evento_id>/inscrever/', views.inscricao_evento, name='inscricao_evento'),
+    # Rota tradicional (já existe)
+    path('inscricao/<int:evento_id>/', views.inscricao_evento, name='inscricao_evento'),
+    
+    # NOVA: Rota minúscula que servirá como encurtador
+    path('e/<int:evento_id>/', views.link_curto_evento, name='link_curto_evento'),
     path('painel/', views.painel_dashboard, name='painel_dashboard'),
     path('painel/evento/<int:evento_id>/exportar/', views.exportar_inscricoes_excel, name='exportar_excel'),
     path('login/', auth_views.LoginView.as_view(template_name='eventos/login.html'), name='login'),

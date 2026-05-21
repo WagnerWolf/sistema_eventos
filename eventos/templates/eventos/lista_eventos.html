@@ -7,12 +7,12 @@
 
         <ul class="nav nav-tabs border-success" id="eventosTab" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active text-light bg-dark" id="abertos-tab" data-bs-toggle="tab" data-bs-target="#abertos-pane" type="button" role="tab">
+                <button class="nav-link active text-light bg-dark border-success border-bottom-0" id="abertos-tab" data-bs-toggle="tab" data-bs-target="#abertos-pane" type="button" role="tab">
                     Inscrições Abertas
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link text-muted" id="encerrados-tab" data-bs-toggle="tab" data-bs-target="#encerrados-pane" type="button" role="tab">
+                <button class="nav-link text-muted border-0 hover-success" id="encerrados-tab" data-bs-toggle="tab" data-bs-target="#encerrados-pane" type="button" role="tab">
                     Eventos Encerrados
                 </button>
             </li>
@@ -22,6 +22,7 @@
 
 <div class="tab-content mt-4" id="eventosTabContent">
     
+    <!-- ABA: INSCRIÇÕES ABERTAS -->
     <div class="tab-pane fade show active" id="abertos-pane" role="tabpanel">
         <div class="row">
             {% for evento in eventos_abertos %}
@@ -39,11 +40,11 @@
                                     <span class="text-success fw-bold">📍 Local:</span><br>
                                     {{ evento.local|default:"A definir" }}
                                 </p>
-                                    <p class="mb-2 small">
-                                        <span class="text-success fw-bold">⏰ Realização:</span><br>
-                                        De {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }}<br>
-                                        Até {{ evento.data_fim|date:"d/m/Y" }} às {{ evento.data_fim|date:"H:i" }}
-                                    </p>
+                                <p class="mb-2 small">
+                                    <span class="text-success fw-bold">⏰ Realização:</span><br>
+                                    De {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }}<br>
+                                    Até {{ evento.data_fim|date:"d/m/Y" }} às {{ evento.data_fim|date:"H:i" }}
+                                </p>
                                 <p class="mb-1 small">
                                     <span class="text-success fw-bold">📅 Período de Inscrição:</span><br>
                                     {{ evento.inicio_inscricoes|date:"d/m/Y H:i" }} até {{ evento.fim_inscricoes|date:"d/m/Y H:i" }}
@@ -54,8 +55,14 @@
                                 </div>
                             </div>
                             
+                            <!-- Nova Lógica do Descrição com "Ver Mais" -->
                             <p class="card-text text-light opacity-75 small flex-grow-1 border-top border-secondary pt-2">
-                                {{ evento.descricao|truncatewords:20 }}
+                                {{ evento.descricao|truncatechars:150 }}
+                                {% if evento.descricao|length > 150 %}
+                                    <a href="#" class="text-info fw-bold text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalDescricao{{ evento.id }}">
+                                        Ler Mais
+                                    </a>
+                                {% endif %}
                             </p>
                             
                             {% if evento.inicio_inscricoes and evento.inicio_inscricoes > agora %}
@@ -65,14 +72,35 @@
                             {% elif evento.vagas_restantes > 0 %}
                                 <a href="{% url 'inscricao_evento' evento.id %}" class="btn btn-primary mt-3 w-100 fw-semibold">Realizar Inscrição</a>
                             {% else %}
-                                <a href="{% url 'inscricao_evento' evento.id %}" class="btn btn-outline-warning mt-3 w-100">Entrar na Lista de Espera</a>
+                                <a href="{% url 'inscricao_evento' evento.id %}" class="btn btn-outline-warning mt-3 w-100 fw-semibold">Entrar na Lista de Espera</a>
                             {% endif %}
-                            </div>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Modal de Descrição (Abre ao clicar em "Ler Mais") -->
+                {% if evento.descricao|length > 150 %}
+                <div class="modal fade" id="modalDescricao{{ evento.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content bg-dark border-success">
+                            <div class="modal-header border-success">
+                                <h1 class="modal-title fs-5 text-primary fw-bold">{{ evento.titulo }}</h1>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body text-light" style="white-space: pre-line;">
+                                {{ evento.descricao }}
+                            </div>
+                            <div class="modal-footer border-secondary">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
             {% empty %}
-                <div class="col-12 text-center py-5">
-                    <p class="text-muted">Nenhum evento com inscrições abertas no momento.</p>
+                <div class="col-12 text-center py-5 border border-success rounded bg-dark">
+                    <p class="text-muted mb-0"><i class="bi bi-calendar-x fs-2 d-block mb-2 text-success"></i> Nenhum evento com inscrições abertas no momento.</p>
                 </div>
             {% endfor %}
         </div>
@@ -92,6 +120,7 @@
         {% endif %}
     </div>
 
+    <!-- ABA: EVENTOS ENCERRADOS -->
     <div class="tab-pane fade" id="encerrados-pane" role="tabpanel">
         <div class="row">
             {% for evento in eventos_encerrados %}
@@ -103,22 +132,51 @@
                         <div class="card-body d-flex flex-column">
                             <h6 class="card-title text-light fw-bold">{{ evento.titulo }}</h6>
                             
-                            <div class="alert alert-secondary py-2 px-3 small mt-2">
-                                <strong>Inscrições encerradas:</strong><br>
+                            <div class="alert alert-secondary py-2 px-3 small mt-2 border-0 bg-dark-subtle text-light">
+                                <strong><i class="bi bi-lock-fill text-warning me-1"></i> Inscrições encerradas em:</strong><br>
                                 {{ evento.fim_inscricoes|date:"d/m/Y H:i" }}
                             </div>
                             
                             <div class="small text-muted mb-3 border-top border-secondary pt-2">
                                 <p class="mb-1">
-                                <strong>Período do evento:</strong><br>
-                                    De {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }} até {{ evento.data_fim|date:"d/m/Y" }} às {{ evento.data_fim|date:"H:i" }}
+                                    <strong class="text-light">Realização:</strong><br>
+                                    De {{ evento.data_inicio|date:"d/m/Y H:i" }}<br>
+                                    Até {{ evento.data_fim|date:"d/m/Y H:i" }}
                                 </p>
-                                <p class="mb-0"><strong>Local:</strong> {{ evento.local|default:"A definir" }}</p>
+                                <p class="mb-0"><strong class="text-light">Local:</strong> {{ evento.local|default:"A definir" }}</p>
                             </div>
 
-                            <button class="btn btn-secondary btn-sm mt-auto w-100" disabled>Inscrições Encerradas</button>
+                             <p class="card-text text-light opacity-50 small flex-grow-1 border-top border-secondary pt-2">
+                                {{ evento.descricao|truncatechars:100 }}
+                                {% if evento.descricao|length > 100 %}
+                                    <a href="#" class="text-secondary fw-bold text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalDescricaoEncerrado{{ evento.id }}">Ler Mais</a>
+                                {% endif %}
+                            </p>
+
+                            <button class="btn btn-outline-secondary btn-sm mt-auto w-100" disabled>Encerrado</button>
                         </div>
                     </div>
+                </div>
+
+                <!-- Modal Descrição Encerrado -->
+                {% if evento.descricao|length > 100 %}
+                <div class="modal fade" id="modalDescricaoEncerrado{{ evento.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content bg-dark border-secondary">
+                            <div class="modal-header border-secondary">
+                                <h1 class="modal-title fs-5 text-light fw-bold">{{ evento.titulo }}</h1>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body text-light opacity-75" style="white-space: pre-line;">
+                                {{ evento.descricao }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% empty %}
+                 <div class="col-12 text-center py-5 border border-secondary rounded bg-dark">
+                    <p class="text-muted mb-0">Nenhum evento encerrado registrado no sistema.</p>
                 </div>
             {% endfor %}
         </div>
@@ -143,65 +201,58 @@
 <style>
     .grayscale { filter: grayscale(100%); }
     .page-link:hover { background-color: #198754 !important; color: white !important; }
+    .hover-success:hover { color: #198754 !important; }
 </style>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    // Escuta cliques no documento todo
+    // Paginação AJAX fluida (impede o piscar da tela inteira)
     document.body.addEventListener('click', function(e) {
-        // Se o clique for em um link de paginação
         if (e.target.tagName.toLowerCase() === 'a' && e.target.classList.contains('page-link')) {
-            e.preventDefault(); // Impede o recarregamento normal
+            e.preventDefault();
             const url = e.target.getAttribute('href');
             
-            // Descobre de qual aba o botão de paginação faz parte
             const paginationUl = e.target.closest('ul.pagination');
             if (!paginationUl) return;
             const abaId = paginationUl.getAttribute('data-tab-id');
             const abaAtiva = document.getElementById(abaId);
             
-            // Efeito visual de carregamento rápido
             abaAtiva.style.opacity = '0.5';
 
-            // Faz a requisição "AJAX"
             fetch(url)
                 .then(response => response.text())
                 .then(html => {
-                    // Converte a string HTML recebida num documento DOM virtual
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
                     
-                    // Extrai apenas o conteúdo da aba específica e substitui na tela atual
                     const novoConteudo = doc.getElementById(abaId).innerHTML;
                     abaAtiva.innerHTML = novoConteudo;
-                    
-                    // Restaura a opacidade
                     abaAtiva.style.opacity = '1';
                     
-                    // Atualiza a URL no navegador sem recarregar, permitindo navegação pelo histórico
                     window.history.pushState({}, '', url);
                 })
                 .catch(err => {
-                    console.error('Erro ao carregar a página:', err);
+                    console.error('Erro de paginação:', err);
                     abaAtiva.style.opacity = '1';
                 });
         }
     });
 
-    // Função auxiliar do Bootstrap para alterar o visual das abas ativas
+    // Lógica das Abas visuais
     const triggerTabList = document.querySelectorAll('#eventosTab button')
     triggerTabList.forEach(triggerEl => {
         const tabTrigger = new bootstrap.Tab(triggerEl)
         triggerEl.addEventListener('click', event => {
             event.preventDefault()
             
-            // Troca a cor do fundo e texto das abas para dar destaque à selecionada
+            // Remove o foco visual de todas
             document.querySelectorAll('#eventosTab button').forEach(b => {
-                b.classList.remove('bg-dark', 'text-light');
-                b.classList.add('text-muted');
+                b.classList.remove('bg-dark', 'text-light', 'border-success', 'border-bottom-0');
+                b.classList.add('text-muted', 'border-0');
             });
-            triggerEl.classList.remove('text-muted');
-            triggerEl.classList.add('bg-dark', 'text-light');
+            // Acende a clicada
+            triggerEl.classList.remove('text-muted', 'border-0');
+            triggerEl.classList.add('bg-dark', 'text-light', 'border-success', 'border-bottom-0');
             
             tabTrigger.show()
         })
