@@ -19,11 +19,12 @@
                 <form method="GET" action="{% url 'consultar_inscricao' %}" class="row g-3">
                     <div class="col-md-5">
                         <label class="form-label text-white small">CPF</label>
-                        <input type="text" name="cpf" class="form-control bg-dark text-white border-secondary" value="{{ cpf_buscado }}" required>
+                        <!-- Adicionado id="inputCpf" e maxlength="14" -->
+                        <input type="text" name="cpf" id="inputCpf" class="form-control bg-dark text-white border-secondary" value="{{ cpf_buscado }}" maxlength="14" placeholder="000.000.000-00" required>
                     </div>
                     <div class="col-md-5">
                         <label class="form-label text-white small">E-mail</label>
-                        <input type="email" name="email" class="form-control bg-dark text-white border-secondary" value="{{ email_buscado }}" required>
+                        <input type="email" name="email" class="form-control bg-dark text-white border-secondary" value="{{ email_buscado }}" placeholder="seu@email.com" required>
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">Buscar</button>
@@ -140,9 +141,27 @@
     </div>
 </div>
 
-<!-- Script de Filtragem Dinâmica -->
+<!-- Scripts (Filtro e Máscara de CPF) -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    
+    // --- MÁSCARA DO CPF ---
+    const inputCpf = document.getElementById('inputCpf');
+    if (inputCpf) {
+        inputCpf.addEventListener('input', function(e) {
+            let valor = e.target.value.replace(/\D/g, ""); // Remove tudo que não for número
+            
+            // Aplica a pontuação gradualmente
+            valor = valor.replace(/(\d{3})(\d)/, "$1.$2");
+            valor = valor.replace(/(\d{3})(\d)/, "$1.$2");
+            valor = valor.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+            
+            e.target.value = valor;
+        });
+    }
+    // -----------------------
+
+    // --- FILTRO DINÂMICO ---
     const filtroAno = document.getElementById('filtroAno');
     const filtroStatus = document.getElementById('filtroStatus');
     const itens = document.querySelectorAll('.inscricao-item');
@@ -157,19 +176,17 @@ document.addEventListener("DOMContentLoaded", function() {
             const itemAno = item.getAttribute('data-ano');
             const itemStatus = item.getAttribute('data-status');
             
-            // Verifica se o item atende às condições (vazio = 'Todos')
             const exibeAno = (anoSelecionado === '') || (itemAno === anoSelecionado);
             const exibeStatus = (statusSelecionado === '') || (itemStatus === statusSelecionado);
 
             if (exibeAno && exibeStatus) {
-                item.style.display = ''; // Volta à exibição padrão do bootstrap
+                item.style.display = ''; 
                 itensVisiveis++;
             } else {
-                item.style.display = 'none'; // Esconde o item instantaneamente
+                item.style.display = 'none'; 
             }
         });
 
-        // Mostra o alerta se escondeu todos os cards
         if (msgVazio) {
             msgVazio.style.display = (itensVisiveis === 0) ? 'block' : 'none';
         }
@@ -179,6 +196,7 @@ document.addEventListener("DOMContentLoaded", function() {
         filtroAno.addEventListener('change', aplicarFiltros);
         filtroStatus.addEventListener('change', aplicarFiltros);
     }
+    // -----------------------
 });
 </script>
 {% endblock %}
