@@ -1,6 +1,13 @@
 {% extends 'eventos/base.html' %}
 
 {% block content %}
+<div class="alert bg-dark border-info text-info shadow-sm d-flex align-items-center mb-4" role="alert">
+    <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+    <div>
+        <strong>Já se inscreveu em algum evento?</strong> 
+        Mantenha a comunidade acadêmica girando! Verifique a aba <a href="{% url 'consultar_inscricao' %}" class="alert-link text-decoration-underline">Minhas Inscrições</a> para acompanhar seu status ou liberar sua vaga caso não possa mais comparecer.
+    </div>
+</div>
 <div class="row mb-4">
     <div class="col-12">
         <h2 class="text-primary fw-bold mb-4">Portal de Eventos</h2>
@@ -22,11 +29,19 @@
 
 <div class="tab-content mt-4" id="eventosTabContent">
     
-    <!-- ABA: INSCRIÇÕES ABERTAS -->
     <div class="tab-pane fade show active" id="abertos-pane" role="tabpanel">
-        <div class="row">
+        
+        <div class="d-flex justify-content-start gap-2 mb-4 bg-dark-subtle p-2 rounded border border-secondary">
+            <button type="button" class="btn btn-sm btn-success btn-turno active" data-turno="todos">Todos os Turnos</button>
+            <button type="button" class="btn btn-sm btn-outline-success btn-turno" data-turno="manha">🌅 Manhã</button>
+            <button type="button" class="btn btn-sm btn-outline-success btn-turno" data-turno="tarde">☀️ Tarde</button>
+            <button type="button" class="btn btn-sm btn-outline-success btn-turno" data-turno="noite">🌙 Noite</button>
+        </div>
+
+        <div class="row" id="containerEventosAbertos">
             {% for evento in eventos_abertos %}
-                <div class="col-md-6 col-lg-4 mb-4 d-flex align-items-stretch">
+                <div class="col-md-6 col-lg-4 mb-4 d-flex align-items-stretch card-evento" 
+                     data-turno-item="{% if evento.data_inicio.hour < 12 %}manha{% elif evento.data_inicio.hour < 18 %}tarde{% else %}noite{% endif %}">
                     <div class="card w-100 shadow-sm border-success bg-dark">
                         {% if evento.imagem_capa %}
                             <img src="{{ evento.imagem_capa.url }}" class="card-img-top border-bottom border-success" style="height: 180px; object-fit: cover;">
@@ -55,7 +70,6 @@
                                 </div>
                             </div>
                             
-                            <!-- Nova Lógica do Descrição com "Ver Mais" -->
                             <p class="card-text text-light opacity-75 small flex-grow-1 border-top border-secondary pt-2">
                                 {{ evento.descricao|truncatechars:150 }}
                                 {% if evento.descricao|length > 150 %}
@@ -78,7 +92,6 @@
                     </div>
                 </div>
 
-                <!-- Modal de Descrição (Abre ao clicar em "Ler Mais") -->
                 {% if evento.descricao|length > 150 %}
                 <div class="modal fade" id="modalDescricao{{ evento.id }}" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -103,6 +116,10 @@
                     <p class="text-muted mb-0"><i class="bi bi-calendar-x fs-2 d-block mb-2 text-success"></i> Nenhum evento com inscrições abertas no momento.</p>
                 </div>
             {% endfor %}
+
+            <div id="msgTurnoVazio" class="col-12 text-center py-5 border border-secondary rounded bg-dark d-none">
+                <p class="text-muted mb-0"><i class="bi bi-clock fs-2 d-block mb-2 text-success"></i> Nenhum evento disponível para este turno nesta página.</p>
+            </div>
         </div>
 
         {% if eventos_abertos.paginator.num_pages > 1 %}
@@ -120,7 +137,6 @@
         {% endif %}
     </div>
 
-    <!-- ABA: EVENTOS ENCERRADOS -->
     <div class="tab-pane fade" id="encerrados-pane" role="tabpanel">
         <div class="row">
             {% for evento in eventos_encerrados %}
@@ -158,7 +174,6 @@
                     </div>
                 </div>
 
-                <!-- Modal Descrição Encerrado -->
                 {% if evento.descricao|length > 100 %}
                 <div class="modal fade" id="modalDescricaoEncerrado{{ evento.id }}" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -206,6 +221,50 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    
+    // --- FILTRAGEM POR TURNO (DENTRO DA ABA DE ABERTOS) ---
+    const botoesTurno = document.querySelectorAll('.btn-turno');
+    const cardsEvento = document.querySelectorAll('.card-evento');
+    const msgTurnoVazio = document.getElementById('msgTurnoVazio');
+
+    botoesTurno.forEach(botao => {
+        botao.addEventListener('click', function() {
+            // Ajusta classes visuais dos botões
+            botoesTurno.forEach(b => {
+                b.classList.remove('btn-success', 'active');
+                b.classList.add('btn-outline-success');
+            });
+            this.classList.remove('btn-outline-success');
+            this.classList.add('btn-success', 'active');
+
+            const turnoSelecionado = this.getAttribute('data-turno');
+            let visiveis = 0;
+
+            // Filtra os cards
+            cardsEvento.forEach(card => {
+                const turnoItem = card.getAttribute('data-turno-item');
+                if (turnoSelecionado === 'todos' || turnoItem === turnoSelecionado) {
+                    card.classList.remove('d-none');
+                    card.classList.add('d-flex');
+                    visiveis++;
+                } else {
+                    card.classList.remove('d-flex');
+                    card.classList.add('d-none');
+                }
+            });
+
+            // Gerencia mensagem de lista vazia na página atual
+            if (msgTurnoVazio) {
+                if (visiveis === 0) {
+                    msgTurnoVazio.classList.remove('d-none');
+                } else {
+                    msgTurnoVazio.classList.add('d-none');
+                }
+            }
+        });
+    });
+    // ------------------------------------------------------
+
     // Paginação AJAX fluida (impede o piscar da tela inteira)
     document.body.addEventListener('click', function(e) {
         if (e.target.tagName.toLowerCase() === 'a' && e.target.classList.contains('page-link')) {
@@ -230,6 +289,9 @@ document.addEventListener("DOMContentLoaded", function() {
                     abaAtiva.style.opacity = '1';
                     
                     window.history.pushState({}, '', url);
+
+                    // RE-INICIALIZA O FILTRO DE TURNO APÓS PAGINAÇÃO AJAX
+                    document.dispatchEvent(new Event('DOMContentLoaded'));
                 })
                 .catch(err => {
                     console.error('Erro de paginação:', err);
@@ -238,19 +300,17 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 
-    // Lógica das Abas visuais
+    // Lógica das Abas visuais principais
     const triggerTabList = document.querySelectorAll('#eventosTab button')
     triggerTabList.forEach(triggerEl => {
         const tabTrigger = new bootstrap.Tab(triggerEl)
         triggerEl.addEventListener('click', event => {
             event.preventDefault()
             
-            // Remove o foco visual de todas
             document.querySelectorAll('#eventosTab button').forEach(b => {
                 b.classList.remove('bg-dark', 'text-light', 'border-success', 'border-bottom-0');
                 b.classList.add('text-muted', 'border-0');
             });
-            // Acende a clicada
             triggerEl.classList.remove('text-muted', 'border-0');
             triggerEl.classList.add('bg-dark', 'text-light', 'border-success', 'border-bottom-0');
             

@@ -24,6 +24,10 @@ def enviar_email_confirmacao(inscricao, evento):
         fuso_local = pytz.timezone(settings.TIME_ZONE)
         data_local = evento.data_inicio.astimezone(fuso_local)
         
+        # Cria a URL usando o Python. Substitua pelo domínio real do seu servidor!
+        caminho_consulta = reverse('consultar_inscricao')
+        url_completa = f"https://eventos.wagnerwolf.com.br{caminho_consulta}"
+        
         resend.api_key = settings.RESEND_API_KEY
         resend.Emails.send({
             "from": f"Sistema de Eventos <{settings.EMAIL_REMETENTE}>",
@@ -34,10 +38,21 @@ def enviar_email_confirmacao(inscricao, evento):
                     <h2 style="color: #198754;">Olá, {inscricao.nome_completo}!</h2>
                     <p>Temos o prazer de informar que sua inscrição para o evento <strong>{evento.titulo}</strong> foi <strong>APROVADA</strong>.</p>
                     <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                        <p style="margin: 0;"><strong>📍 Local:</strong> {evento.local or 'A definir'}</p>
-                        <p style="margin: 5px 0 0 0;"><strong>⏰ Início:</strong> {data_local.strftime('%d/%m/%Y às %H:%M')}</p>
+                        <p style="margin: 0; color: #333;"><strong>📍 Local:</strong> {evento.local or 'A definir'}</p>
+                        <p style="margin: 5px 0 0 0; color: #333;"><strong>⏰ Início:</strong> {data_local.strftime('%d/%m/%Y às %H:%M')}</p>
                     </div>
-                    <p style="font-size: 12px; color: #666;">Este é um e-mail automático, por favor não responda.</p>
+                    
+                    <div style="margin-top: 25px; padding: 15px; border-left: 4px solid #dc3545; background-color: #fff3f3; border-radius: 4px;">
+                        <p style="margin: 0; color: #842029; font-size: 14px;">
+                            <strong>⚠️ Importante: Imprevistos acontecem!</strong><br>
+                            As vagas para este evento são limitadas. Se você perceber que <strong>não poderá comparecer</strong>, por favor, acesse o portal e cancele sua inscrição para liberar a vaga a um colega.
+                        </p>
+                        <p style="margin: 10px 0 0 0; font-size: 14px;">
+                            👉 <a href="{url_completa}" style="color: #dc3545; font-weight: bold;">Clique aqui para gerenciar sua inscrição</a>
+                        </p>
+                    </div>
+
+                    <p style="font-size: 12px; color: #666; margin-top: 20px;">Este é um e-mail automático, por favor não responda.</p>
                 </div>
             """
         })
