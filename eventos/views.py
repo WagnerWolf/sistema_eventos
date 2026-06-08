@@ -1,3 +1,4 @@
+import xlwt
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from .models import Evento, Inscricao
@@ -290,41 +291,38 @@ def painel_dashboard(request):
 @login_required
 def exportar_inscricoes_excel(request, evento_id):
     if not request.user.is_staff:
-
         messages.error(request, 'Acesso negado. Você não tem permissão para ver esta página.')
-
         return redirect('painel_dashboard')
+        
     # Busca o evento específico
     evento = get_object_or_404(Evento, id=evento_id)
     
-    # Busca todas as inscrições do evento (você pode alterar para .filter(status='APROVADA') se preferir exportar só os aprovados)
-    inscricoes = evento.inscricoes.all().order_by('nome_completo')
+    # 🚨 FILTRO APLICADO: Busca APENAS as inscrições aprovadas
+    inscricoes = evento.inscricoes.filter(status='APROVADA').order_by('nome_completo')
 
-    # Cria o arquivo Excel em memória
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Inscrições"
+    # Prepara a resposta HTTP para forçar o download em .xls
+    response = HttpResponse(content_type='application/vnd.ms-excel')
+    nome_arquivo = f"inscricoes_{evento.titulo.replace(' ', '_')}.xls"
+    response['Content-Disposition'] = f'attachment; filename="{nome_arquivo}"'
 
-    # Define e insere o cabeçalho exato que você solicitou
+    # Cria o arquivo Excel em memória usando xlwt
+    wb = xlwt.Workbook(encoding='utf-8')
+    ws = wb.add_sheet("Inscrições")
+
+    # Define e insere o cabeçalho
     headers = ['CPF', 'NOME', 'EMAIL', 'TRABALHO', 'Orientador']
-    ws.append(headers)
+    for col_num, header in enumerate(headers):
+        ws.write(0, col_num, header) # Linha 0, Coluna X, Valor
 
     # Preenche as linhas com os dados dos inscritos
-    for inscricao in inscricoes:
-        ws.append([
-            inscricao.cpf,
-            inscricao.nome_completo.upper(), # Nome em maiúsculo costuma ficar melhor em certificados
-            inscricao.email,
-            inscricao.trabalho or '',
-            inscricao.orientador or ''
-        ])
-
-    # Prepara a resposta HTTP para forçar o download do arquivo
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    # O nome do arquivo terá o título do evento (removendo espaços para evitar problemas no download)
-    nome_arquivo = f"inscricoes_{evento.titulo.replace(' ', '_')}.xlsx"
-    response['Content-Disposition'] = f'attachment; filename={nome_arquivo}'
-    
+    for row_num, inscricao in enumerate(inscricoes, start=1):
+        ws.write(row_num, 0, inscricao.cpf)
+        ws.write(row_num, 1, inscricao.nome_completo.upper())
+        ws.write(row_num, 2, inscricao.email)
+        ws.write(row_num, 3, inscricao.trabalho or '')
+        ws.write(row_num, 4, inscricao.orientador or '')
+        
+    # Salva o workbook diretamente no objeto response
     wb.save(response)
     return response
 
