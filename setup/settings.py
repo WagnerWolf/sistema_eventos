@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
+from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,12 +21,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-$@(ddr@!y=5%!@9@y_5x87@ja09(re!s@pq+ew4*&_)-*m%yg%'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = ['eventos.wagnerwolf.com.br', 'localhost', '127.0.0.1']
+CSRF_TRUSTED_ORIGINS = ['https://eventos.wagnerwolf.com.br']
 
 
 # Application definition
@@ -122,6 +124,6 @@ LOGIN_REDIRECT_URL = 'painel_dashboard'  # Para onde ir após logar com sucesso
 LOGOUT_REDIRECT_URL = 'lista_eventos'    # Para onde ir após sair
 LOGIN_URL = 'login'                      # Nome da rota de login
 # Configurações do Resend
-RESEND_API_KEY = "re_G2pNaHVe_6dehuHhHnzVXLCJHUusTuC8m"
-EMAIL_REMETENTE = "inscricao@wagnerwolf.com.br" # Ou seu domínio verificado
+RESEND_API_KEY = config('RESEND_API_KEY')
+EMAIL_REMETENTE = "inscricao@wagnerwolf.com.br"
 STATIC_ROOT = os.path.join(BASE_DIR, 'static_root')

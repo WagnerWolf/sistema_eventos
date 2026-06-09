@@ -20,5 +20,8 @@ urlpatterns = [
     path('painel/evento/<int:evento_id>/presenca/', views.lista_presenca, name='lista_presenca'),
     path('consultar-inscricao/', views.consultar_inscricao, name='consultar_inscricao'),
     path('cancelar-inscricao/<int:inscricao_id>/', views.cancelar_inscricao, name='cancelar_inscricao'),
+    path('painel/evento/<int:evento_id>/credenciamento/', views.tela_qrcode_checkin, name='tela_qrcode_checkin'),
+    path('painel/evento/<int:evento_id>/api/token-checkin/', views.api_gerar_token_qrcode, name='api_token_checkin'),
+    path('checkin/<int:evento_id>/', views.checkin_evento, name='checkin_evento'),
     
 ]

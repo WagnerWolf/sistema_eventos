@@ -83,6 +83,8 @@ class Inscricao(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDENTE')
     data_inscricao = models.DateTimeField(auto_now_add=True)
     respostas_questionario = models.JSONField(default=dict, blank=True, null=True)
+    compareceu = models.BooleanField(default=False, verbose_name="Check-in Realizado")
+    inscricao_local = models.BooleanField(default=False, verbose_name="Inscrito na Hora")
     
     def __str__(self):
         return f"{self.nome_completo} - {self.evento.titulo}"

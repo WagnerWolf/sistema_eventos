@@ -1,0 +1,96 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8 col-lg-6 text-center">
+        <h2 class="text-primary fw-bold mb-1">Credenciamento Digital</h2>
+        <h5 class="text-white-50 mb-4">{{ evento.titulo }}</h5>
+
+        <div class="card bg-dark border-success shadow-lg">
+            <div class="card-body p-5">
+                <p class="text-light fs-5 mb-4">Aponte a câmera do seu celular para registrar presença</p>
+                
+                <div id="qrcode" class="d-flex justify-content-center bg-white p-4 rounded mx-auto" style="width: 280px; height: 280px;">
+                    <div class="spinner-border text-success my-auto" role="status"></div>
+                </div>
+
+                <div class="progress mt-4 bg-dark-subtle" style="height: 10px;">
+                    <div id="barraTempo" class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                </div>
+                <p class="small text-muted mt-2">O código de segurança é atualizado a cada 30 segundos.</p>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <a href="{% url 'gerenciar_inscricoes' evento.id %}" class="btn btn-outline-secondary">Voltar ao Gerenciamento</a>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const qrContainer = document.getElementById("qrcode");
+    const barraTempo = document.getElementById("barraTempo");
+    const eventoId = "{{ evento.id }}";
+    let qrCodeGerador = null;
+
+    function atualizarQRCode() {
+        // O Django injeta a URL exata aqui, evitando qualquer erro 404 de caminhos
+        const urlApi = "{% url 'api_token_checkin' evento.id %}";
+        
+        fetch(urlApi)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Erro ao buscar o token HTTP: " + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                qrContainer.innerHTML = ""; // Limpa o QR anterior
+                qrCodeGerador = new QRCode(qrContainer, {
+                    text: data.url,
+                    width: 232,
+                    height: 232,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+                resetarBarraDeTempo();
+            })
+            .catch(error => {
+                console.error("Falha ao atualizar QR Code:", error);
+            });
+    }
+
+    function resetarBarraDeTempo() {
+        let timeLeft = 30; // 30 segundos
+        barraTempo.style.transition = 'none';
+        barraTempo.style.width = '100%';
+        barraTempo.classList.remove('bg-danger');
+        barraTempo.classList.add('bg-success');
+
+        clearInterval(window.timerInterval);
+        
+        window.timerInterval = setInterval(() => {
+            timeLeft--;
+            const porcentagem = (timeLeft / 30) * 100;
+            barraTempo.style.width = porcentagem + '%';
+
+            if (timeLeft <= 5) {
+                barraTempo.classList.remove('bg-success');
+                barraTempo.classList.add('bg-danger');
+            }
+
+            if (timeLeft <= 0) {
+                clearInterval(window.timerInterval);
+                atualizarQRCode(); // Puxa o próximo token
+            }
+        }, 1000);
+    }
+
+    // Dá o start!
+    atualizarQRCode();
+});
+</script>
+{% endblock %}

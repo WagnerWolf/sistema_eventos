@@ -1,0 +1,52 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="col-11 col-md-6 col-lg-5">
+        <div class="card bg-dark border-success shadow-lg">
+            <div class="card-body p-4 text-center">
+                
+                {% if token_invalido %}
+                    <i class="bi bi-x-octagon-fill text-danger mb-3" style="font-size: 4rem;"></i>
+                    <h3 class="text-danger fw-bold mb-4">Acesso Negado</h3>
+                    {% else %}
+                    <i class="bi bi-person-check-fill text-success" style="font-size: 3rem;"></i>
+                    <h3 class="text-primary fw-bold mt-3 mb-1">Check-in</h3>
+                    <h6 class="text-white-50 mb-4">{{ evento.titulo }}</h6>
+                    
+                    <form method="POST" action="{% url 'checkin_evento' evento.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="token" value="{{ token }}">
+                        
+                        <div class="mb-4 text-start">
+                            <label class="form-label text-light small fw-bold">Informe seu CPF</label>
+                            <input type="text" name="cpf" id="inputCpfCheckin" class="form-control form-control-lg bg-dark text-white border-success text-center fs-4" placeholder="000.000.000-00" maxlength="14" required autocomplete="off">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow">
+                            CONFIRMAR PRESENÇA
+                        </button>
+                    </form>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const inputCpf = document.getElementById('inputCpfCheckin');
+    if (inputCpf) {
+        inputCpf.addEventListener('input', function(e) {
+            let valor = e.target.value.replace(/\D/g, "");
+            valor = valor.replace(/(\d{3})(\d)/, "$1.$2");
+            valor = valor.replace(/(\d{3})(\d)/, "$1.$2");
+            valor = valor.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+            e.target.value = valor;
+        });
+        inputCpf.focus();
+    }
+});
+</script>
+{% endblock %}

@@ -17,7 +17,7 @@ from django.http import JsonResponse
 from django.db import transaction
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.decorators import permission_required
-
+from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
 
 def enviar_email_confirmacao(inscricao, evento):
     """Função centralizada para disparo de e-mail de aprovação"""
@@ -134,13 +134,32 @@ def inscricao_evento(request, evento_id):
     evento = get_object_or_404(Evento, id=evento_id)
     agora = timezone.now()
     
-    if evento.inicio_inscricoes and agora < evento.inicio_inscricoes:
-        messages.warning(request, 'As inscrições para este evento ainda não começaram.')
-        return redirect('lista_eventos')
-        
-    if evento.fim_inscricoes and agora > evento.fim_inscricoes:
-        messages.warning(request, 'As inscrições para este evento já foram encerradas.')
-        return redirect('lista_eventos')
+    # --- VALIDAÇÃO DO TOKEN DE CREDENCIAMENTO LOCAL ---
+    signer = TimestampSigner()
+    token = request.GET.get('token') or request.POST.get('token')
+    is_inscricao_local = False
+    
+    if token:
+        try:
+            # Dá 10 minutos (600s) para o aluno preencher o formulário com calma
+            evento_id_assinado = signer.unsign(token, max_age=600)
+            if str(evento.id) == evento_id_assinado:
+                is_inscricao_local = True
+        except (SignatureExpired, BadSignature):
+            messages.error(request, 'O tempo para inscrição no local expirou. Por favor, escaneie o QR Code novamente.')
+            # Evita que a pessoa fique presa numa tela de erro, joga de volta para a tela inicial
+            return redirect('lista_eventos')
+    # --------------------------------------------------
+
+    # Trava de datas (Ignorada se for Inscrição Local VIP)
+    if not is_inscricao_local:
+        if evento.inicio_inscricoes and agora < evento.inicio_inscricoes:
+            messages.warning(request, 'As inscrições para este evento ainda não começaram.')
+            return redirect('lista_eventos')
+            
+        if evento.fim_inscricoes and agora > evento.fim_inscricoes:
+            messages.warning(request, 'As inscrições para este evento já foram encerradas.')
+            return redirect('lista_eventos')
     
     if request.method == 'POST':
         nome = request.POST.get('nome_completo')
@@ -194,13 +213,18 @@ def inscricao_evento(request, evento_id):
                 inscricao_existente.evento = evento
                 
                 # --- LÓGICA NA TRANSFERÊNCIA ---
-                if evento.aprovacao_automatica:
-                    if getattr(evento, 'vagas_restantes', 1) > 0:
-                        inscricao_existente.status = 'APROVADA'
-                    else:
-                        inscricao_existente.status = 'LISTA_ESPERA'
+                if is_inscricao_local:
+                    inscricao_existente.status = 'APROVADA'
+                    inscricao_existente.compareceu = True
+                    inscricao_existente.inscricao_local = True
                 else:
-                    inscricao_existente.status = 'PENDENTE'
+                    if evento.aprovacao_automatica:
+                        if getattr(evento, 'vagas_restantes', 1) > 0:
+                            inscricao_existente.status = 'APROVADA'
+                        else:
+                            inscricao_existente.status = 'LISTA_ESPERA'
+                    else:
+                        inscricao_existente.status = 'PENDENTE'
                 # --------------------------------
                 
                 if atualizar_dados:
@@ -211,21 +235,23 @@ def inscricao_evento(request, evento_id):
                     inscricao_existente.curso_turma = curso_turma
                     
                     respostas_dict = {}
-                    if evento.tem_questionario and evento.questionario:
+                    if getattr(evento, 'tem_questionario', False) and evento.questionario:
                         for pergunta in evento.questionario:
                             respostas_dict[pergunta['id']] = request.POST.get(pergunta['id'], '')
                     inscricao_existente.respostas_questionario = respostas_dict
 
                 inscricao_existente.save()
 
-                # Dispara o e-mail de imediato caso aprovado automaticamente na transferência
-                if inscricao_existente.status == 'APROVADA':
+                if inscricao_existente.status == 'APROVADA' and not is_inscricao_local:
                     enviar_email_confirmacao(inscricao_existente, evento)
 
-                messages.success(request, f'Sua inscrição foi transferida com sucesso para: {evento.titulo}.')
+                if is_inscricao_local:
+                    messages.success(request, f'✅ Presença confirmada via transferência! Bem-vindo(a), {nome.split()[0]}!')
+                else:
+                    messages.success(request, f'Sua inscrição foi transferida com sucesso para: {evento.titulo}.')
                 return redirect('lista_eventos')
 
-        if not evento.aberto_comunidade and not vinculo:
+        if not getattr(evento, 'aberto_comunidade', True) and not vinculo:
             messages.error(request, 'Operação negada. Este evento é exclusivo para a comunidade acadêmica.')
             return redirect('inscricao_evento', evento_id=evento.id)
         
@@ -234,37 +260,49 @@ def inscricao_evento(request, evento_id):
             return redirect('inscricao_evento', evento_id=evento.id)
         
         respostas_dict = {}
-        if evento.tem_questionario and evento.questionario:
+        if getattr(evento, 'tem_questionario', False) and evento.questionario:
             for pergunta in evento.questionario:
                 respostas_dict[pergunta['id']] = request.POST.get(pergunta['id'], '')
         
         # --- LÓGICA PARA INSCRIÇÃO NOVA ---
-        status_inicial = 'PENDENTE'
-        if evento.aprovacao_automatica:
-            if getattr(evento, 'vagas_restantes', 1) > 0:
-                status_inicial = 'APROVADA'
-            else:
-                status_inicial = 'LISTA_ESPERA'
+        if is_inscricao_local:
+            status_inicial = 'APROVADA'
+        else:
+            status_inicial = 'PENDENTE'
+            if evento.aprovacao_automatica:
+                if getattr(evento, 'vagas_restantes', 1) > 0:
+                    status_inicial = 'APROVADA'
+                else:
+                    status_inicial = 'LISTA_ESPERA'
 
         nova_inscricao = Inscricao.objects.create(
             evento=evento, nome_completo=nome, email=email, cpf=cpf,
             tem_vinculo_universidade=vinculo, matricula=matricula if vinculo else '',
             curso_turma=curso_turma if vinculo else '', respostas_questionario=respostas_dict,
-            status=status_inicial
+            status=status_inicial,
+            compareceu=is_inscricao_local,        # Marca presença se for pelo QR Code
+            inscricao_local=is_inscricao_local    # Etiqueta especial
         )
 
-        # Dispara o e-mail e ajusta a mensagem com base no status inicial
-        if status_inicial == 'APROVADA':
-            enviar_email_confirmacao(nova_inscricao, evento)
-            messages.success(request, 'Sua inscrição foi registrada e confirmada com sucesso!')
-        elif status_inicial == 'LISTA_ESPERA':
-            messages.warning(request, 'As vagas estão esgotadas. Você foi colocado na Lista de Espera e será aprovado caso alguém desista!')
+        if is_inscricao_local:
+            messages.success(request, f'✅ Inscrição expressa concluída e presença confirmada! Bom evento, {nome.split()[0]}!')
         else:
-            messages.success(request, 'Sua inscrição foi registrada com sucesso, aguarde o email de confirmação da equipe!')
+            if status_inicial == 'APROVADA':
+                enviar_email_confirmacao(nova_inscricao, evento)
+                messages.success(request, 'Sua inscrição foi registrada e confirmada com sucesso!')
+            elif status_inicial == 'LISTA_ESPERA':
+                messages.warning(request, 'As vagas estão esgotadas. Você foi colocado na Lista de Espera e será aprovado caso alguém desista!')
+            else:
+                messages.success(request, 'Sua inscrição foi registrada com sucesso, aguarde o email de confirmação da equipe!')
             
         return redirect('lista_eventos')
 
-    return render(request, 'eventos/form_inscricao.html', {'evento': evento})
+    context = {
+        'evento': evento,
+        'cpf_preenchido': request.GET.get('cpf', ''),
+        'token': token if is_inscricao_local else ''
+    }
+    return render(request, 'eventos/form_inscricao.html', context)
 
 @user_passes_test(e_avaliador)
 def painel_dashboard(request):
@@ -297,8 +335,8 @@ def exportar_inscricoes_excel(request, evento_id):
     # Busca o evento específico
     evento = get_object_or_404(Evento, id=evento_id)
     
-    # 🚨 FILTRO APLICADO: Busca APENAS as inscrições aprovadas
-    inscricoes = evento.inscricoes.filter(status='APROVADA').order_by('nome_completo')
+    # 🚨 FILTRO ATUALIZADO: Aprovada E Compareceu
+    inscricoes = evento.inscricoes.filter(status='APROVADA', compareceu=True).order_by('nome_completo')
 
     # Prepara a resposta HTTP para forçar o download em .xls
     response = HttpResponse(content_type='application/vnd.ms-excel')
@@ -570,3 +608,77 @@ def link_curto_evento(request, evento_id):
     
     # Redireciona o usuário para a rota oficial e completa de inscrição
     return redirect('inscricao_evento', evento_id=evento.id)
+
+
+# 1. TELA DA EQUIPE: Exibe o QR Code
+@user_passes_test(e_avaliador)
+def tela_qrcode_checkin(request, evento_id):
+    evento = get_object_or_404(Evento, id=evento_id)
+    return render(request, 'eventos/tela_qrcode.html', {'evento': evento})
+
+# 2. API: Gera o link que expira
+@user_passes_test(e_avaliador)
+def api_gerar_token_qrcode(request, evento_id):
+    signer = TimestampSigner()
+    # Assina o ID do evento com um carimbo de tempo
+    token = signer.sign(str(evento_id))
+    
+    # Monta a URL completa que vai para o QR Code
+    url_base = request.build_absolute_uri(reverse('checkin_evento', args=[evento_id]))
+    url_completa = f"{url_base}?token={token}"
+    return JsonResponse({'url': url_completa})
+
+# 3. TELA DO ALUNO: Onde ele digita o CPF
+def checkin_evento(request, evento_id):
+    evento = get_object_or_404(Evento, id=evento_id)
+    signer = TimestampSigner()
+    
+    # Tenta pegar o token (seja pela URL ao escanear, ou pelo form ao enviar o CPF)
+    token = request.GET.get('token') or request.POST.get('token')
+    
+    if not token:
+        messages.error(request, 'Acesso bloqueado. Escaneie o QR Code oficial na recepção do evento.')
+        return render(request, 'eventos/checkin_self_service.html', {'evento': evento, 'token_invalido': True})
+        
+    try:
+        # UX: 45s para conseguir escanear e carregar a página. 3 minutos para digitar o CPF e enviar.
+        tempo_limite = 180 if request.method == 'POST' else 45
+        evento_id_assinado = signer.unsign(token, max_age=tempo_limite)
+        
+        if str(evento.id) != evento_id_assinado:
+            raise BadSignature
+            
+    except (SignatureExpired, BadSignature):
+        messages.error(request, 'O QR Code expirou! Por favor, escaneie novamente com a equipe da recepção.')
+        return render(request, 'eventos/checkin_self_service.html', {'evento': evento, 'token_invalido': True})
+
+    # A partir daqui, o token é válido!
+    if request.method == 'POST':
+        cpf_digitado = request.POST.get('cpf', '')
+        cpf_limpo = ''.join(filter(str.isdigit, cpf_digitado))
+        
+        if cpf_limpo:
+            inscricao = evento.inscricoes.filter(cpf__icontains=cpf_limpo).first()
+            
+            if inscricao:
+                if inscricao.status == 'RECUSADA':
+                    messages.error(request, 'Sua inscrição foi cancelada anteriormente.')
+                elif getattr(inscricao, 'compareceu', False): # Checa se já marcou presença
+                    messages.info(request, 'O check-in já havia sido realizado para este CPF.')
+                else:
+                    # Promove da fila de espera na hora
+                    if inscricao.status == 'LISTA_ESPERA':
+                        inscricao.status = 'APROVADA'
+                    
+                    inscricao.compareceu = True
+                    inscricao.save()
+                    messages.success(request, f'✅ Presença confirmada! Bem-vindo(a), {inscricao.nome_completo.split()[0]}!')
+            else:
+                messages.warning(request, 'Inscrição não encontrada. Preencha seus dados rapidamente.')
+                
+                # 🚨 CORREÇÃO DA ROTA AQUI: 
+                # Chama a 'inscricao_evento' normal, passando o CPF preenchido e o Token de autorização VIP
+                url_inscricao = reverse('inscricao_evento', args=[evento.id])
+                return redirect(f"{url_inscricao}?cpf={cpf_digitado}&token={token}")
+                
+    return render(request, 'eventos/checkin_self_service.html', {'evento': evento, 'token': token})
