@@ -52,6 +52,7 @@
                         <th>Data da Inscrição</th>
                         <th class="text-center">Status</th>
                         <th class="text-end pe-4">Ações</th>
+                        <th class="text-center">Frequência</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -155,6 +156,15 @@
                                     </div>
                                 </div>
                             </div>
+                        </td>
+                                                <td class="text-center">
+                            {% if inscricao.compareceu %}
+                                <span class="badge {% if inscricao.aprovado_certificado %}bg-success{% else %}bg-warning text-dark{% endif %} px-2 py-1" title="Sessões: {{ inscricao.total_presencas }} de {{ evento.total_sessoes }}">
+                                    <i class="bi bi-bar-chart-fill me-1"></i> {{ inscricao.percentual_frequencia }}%
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary opacity-50 px-2 py-1">Ausente</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}

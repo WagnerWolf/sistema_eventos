@@ -18,6 +18,8 @@ from django.db import transaction
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.decorators import permission_required
 from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
+from datetime import timedelta
+
 
 def enviar_email_confirmacao(inscricao, evento):
     """Função centralizada para disparo de e-mail de aprovação"""
@@ -147,7 +149,6 @@ def inscricao_evento(request, evento_id):
                 is_inscricao_local = True
         except (SignatureExpired, BadSignature):
             messages.error(request, 'O tempo para inscrição no local expirou. Por favor, escaneie o QR Code novamente.')
-            # Evita que a pessoa fique presa numa tela de erro, joga de volta para a tela inicial
             return redirect('lista_eventos')
     # --------------------------------------------------
 
@@ -217,6 +218,9 @@ def inscricao_evento(request, evento_id):
                     inscricao_existente.status = 'APROVADA'
                     inscricao_existente.compareceu = True
                     inscricao_existente.inscricao_local = True
+                    # Inicia a contagem progressiva na transferência local
+                    inscricao_existente.total_presencas = 1
+                    inscricao_existente.ultimo_checkin = agora
                 else:
                     if evento.aprovacao_automatica:
                         if getattr(evento, 'vagas_restantes', 1) > 0:
@@ -280,8 +284,11 @@ def inscricao_evento(request, evento_id):
             tem_vinculo_universidade=vinculo, matricula=matricula if vinculo else '',
             curso_turma=curso_turma if vinculo else '', respostas_questionario=respostas_dict,
             status=status_inicial,
-            compareceu=is_inscricao_local,        # Marca presença se for pelo QR Code
-            inscricao_local=is_inscricao_local    # Etiqueta especial
+            compareceu=is_inscricao_local,        
+            inscricao_local=is_inscricao_local,
+            # Configura a primeira presença progressiva no banco
+            total_presencas=1 if is_inscricao_local else 0,
+            ultimo_checkin=agora if is_inscricao_local else None
         )
 
         if is_inscricao_local:
@@ -335,8 +342,11 @@ def exportar_inscricoes_excel(request, evento_id):
     # Busca o evento específico
     evento = get_object_or_404(Evento, id=evento_id)
     
-    # 🚨 FILTRO ATUALIZADO: Aprovada E Compareceu
-    inscricoes = evento.inscricoes.filter(status='APROVADA', compareceu=True).order_by('nome_completo')
+    # Busca todas as inscrições aprovadas para filtragem por propriedade
+    inscricoes_aprovadas = evento.inscricoes.filter(status='APROVADA').order_by('nome_completo')
+    
+    # 🚨 FILTRO ATUALIZADO: Avalia a propriedade baseada na frequência mínima da oficina/evento
+    inscricoes = [i for i in inscricoes_aprovadas if i.aprovado_certificado]
 
     # Prepara a resposta HTTP para forçar o download em .xls
     response = HttpResponse(content_type='application/vnd.ms-excel')
@@ -347,18 +357,19 @@ def exportar_inscricoes_excel(request, evento_id):
     wb = xlwt.Workbook(encoding='utf-8')
     ws = wb.add_sheet("Inscrições")
 
-    # Define e insere o cabeçalho
-    headers = ['CPF', 'NOME', 'EMAIL', 'TRABALHO', 'Orientador']
+    # Define e insere o cabeçalho (Adicionado a coluna de Frequência para auditoria)
+    headers = ['CPF', 'NOME', 'EMAIL', 'TRABALHO', 'Orientador', 'FREQUÊNCIA']
     for col_num, header in enumerate(headers):
-        ws.write(0, col_num, header) # Linha 0, Coluna X, Valor
+        ws.write(0, col_num, header)
 
-    # Preenche as linhas com os dados dos inscritos
+    # Preenche as linhas com os dados dos inscritos habilitados
     for row_num, inscricao in enumerate(inscricoes, start=1):
         ws.write(row_num, 0, inscricao.cpf)
         ws.write(row_num, 1, inscricao.nome_completo.upper())
         ws.write(row_num, 2, inscricao.email)
         ws.write(row_num, 3, inscricao.trabalho or '')
         ws.write(row_num, 4, inscricao.orientador or '')
+        ws.write(row_num, 5, f"{inscricao.percentual_frequencia}%")
         
     # Salva o workbook diretamente no objeto response
     wb.save(response)
@@ -655,30 +666,46 @@ def checkin_evento(request, evento_id):
     # A partir daqui, o token é válido!
     if request.method == 'POST':
         cpf_digitado = request.POST.get('cpf', '')
+        
+        # Limpa tudo o que não for número
         cpf_limpo = ''.join(filter(str.isdigit, cpf_digitado))
         
-        if cpf_limpo:
-            inscricao = evento.inscricoes.filter(cpf__icontains=cpf_limpo).first()
+        if len(cpf_limpo) == 11:
+            # Reconstrói a máscara perfeitamente para bater com o banco de dados
+            cpf_formatado = f"{cpf_limpo[:3]}.{cpf_limpo[3:6]}.{cpf_limpo[6:9]}-{cpf_limpo[9:]}"
+            
+            # Busca com o CPF exato e mascarado
+            inscricao = evento.inscricoes.filter(cpf=cpf_formatado).first()
             
             if inscricao:
                 if inscricao.status == 'RECUSADA':
                     messages.error(request, 'Sua inscrição foi cancelada anteriormente.')
-                elif getattr(inscricao, 'compareceu', False): # Checa se já marcou presença
-                    messages.info(request, 'O check-in já havia sido realizado para este CPF.')
                 else:
                     # Promove da fila de espera na hora
                     if inscricao.status == 'LISTA_ESPERA':
                         inscricao.status = 'APROVADA'
                     
                     inscricao.compareceu = True
-                    inscricao.save()
-                    messages.success(request, f'✅ Presença confirmada! Bem-vindo(a), {inscricao.nome_completo.split()[0]}!')
+                    
+                    # --- REGRA DE MÚLTIPLAS SESSÕES COM COOLDOWN DE 2 HORAS ---
+                    agora = timezone.now()
+                    intervalo_minimo = timedelta(hours=2)
+                    
+                    # Verifica se é o primeiro check-in OU se já passou o tempo mínimo
+                    if not inscricao.ultimo_checkin or (agora - inscricao.ultimo_checkin) > intervalo_minimo:
+                        inscricao.total_presencas += 1
+                        inscricao.ultimo_checkin = agora
+                        inscricao.save()
+                        
+                        messages.success(request, f'✅ Presença {inscricao.total_presencas}/{evento.total_sessoes} confirmada! Bem-vindo(a), {inscricao.nome_completo.split()[0]}!')
+                    else:
+                        # Tocou o QR code de novo antes de 2 horas na mesma sessão
+                        messages.info(request, f'Você já registrou sua presença nesta sessão! (Frequência atual: {inscricao.percentual_frequencia}%)')
             else:
                 messages.warning(request, 'Inscrição não encontrada. Preencha seus dados rapidamente.')
                 
-                # 🚨 CORREÇÃO DA ROTA AQUI: 
-                # Chama a 'inscricao_evento' normal, passando o CPF preenchido e o Token de autorização VIP
+                # Chama a 'inscricao_evento' normal, passando o CPF já mascarado e o Token de autorização VIP
                 url_inscricao = reverse('inscricao_evento', args=[evento.id])
-                return redirect(f"{url_inscricao}?cpf={cpf_digitado}&token={token}")
+                return redirect(f"{url_inscricao}?cpf={cpf_formatado}&token={token}")
                 
     return render(request, 'eventos/checkin_self_service.html', {'evento': evento, 'token': token})

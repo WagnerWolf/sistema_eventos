@@ -29,6 +29,8 @@ class Evento(models.Model):
     # --- Período de Realização do Evento ---
     data_inicio = models.DateTimeField(verbose_name="Início do Evento")
     data_fim = models.DateTimeField(verbose_name="Término do Evento")
+    total_sessoes = models.PositiveIntegerField(default=1, verbose_name="Total de Dias/Sessões")
+    frequencia_minima = models.PositiveIntegerField(default=75, verbose_name="Frequência Mínima (%) para Certificado")
 
     aprovacao_automatica = models.BooleanField(
         default=False,
@@ -85,6 +87,17 @@ class Inscricao(models.Model):
     respostas_questionario = models.JSONField(default=dict, blank=True, null=True)
     compareceu = models.BooleanField(default=False, verbose_name="Check-in Realizado")
     inscricao_local = models.BooleanField(default=False, verbose_name="Inscrito na Hora")
+    total_presencas = models.PositiveIntegerField(default=0, verbose_name="Total de Presenças")
+    ultimo_checkin = models.DateTimeField(null=True, blank=True, verbose_name="Último Check-in")
+    @property
+    def percentual_frequencia(self):
+        if self.evento.total_sessoes == 0:
+            return 0
+        return int((self.total_presencas / self.evento.total_sessoes) * 100)
+
+    @property
+    def aprovado_certificado(self):
+        return self.percentual_frequencia >= self.evento.frequencia_minima
     
     def __str__(self):
         return f"{self.nome_completo} - {self.evento.titulo}"

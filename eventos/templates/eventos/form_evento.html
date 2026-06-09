@@ -33,7 +33,6 @@
 
                         <div class="col-md-5 bg-dark-subtle rounded p-3 border border-secondary">
                             
-                            <!-- BLOCO ALTERADO: Vagas e Switches -->
                             <div class="row mb-4">
                                 <div class="col-6">
                                     <label class="form-label text-white">Total de Vagas</label>
@@ -50,8 +49,20 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- FIM DO BLOCO ALTERADO -->
-
+                            
+                            <h6 class="text-info border-bottom border-secondary pb-1 mb-3 small text-uppercase">
+                                <i class="bi bi-ui-checks me-1"></i> Controle de Frequência
+                            </h6>
+                            <div class="row mb-4">
+                                <div class="col-6">
+                                    <label class="form-label text-white-50 small mb-1" title="Palestras = 1. Minicursos = 3, 5...">Sessões / Dias</label>
+                                    {{ form.total_sessoes }}
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label text-white-50 small mb-1" title="Padrão: 75%">Frequência Mínima (%)</label>
+                                    {{ form.frequencia_minima }}
+                                </div>
+                            </div>
                             <h6 class="text-success border-bottom border-secondary pb-1 mb-3 small text-uppercase">Período de Inscrição</h6>
                             <div class="mb-3">
                                 <label class="form-label text-white-50 small">Início das Inscrições</label>
