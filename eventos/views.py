@@ -19,7 +19,10 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.decorators import permission_required
 from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
 from datetime import timedelta
+from urllib.parse import urlencode
+import logging
 
+logger = logging.getLogger('eventos')
 
 def enviar_email_confirmacao(inscricao, evento):
     """Função centralizada para disparo de e-mail de aprovação"""
@@ -307,6 +310,8 @@ def inscricao_evento(request, evento_id):
     context = {
         'evento': evento,
         'cpf_preenchido': request.GET.get('cpf', ''),
+        'nome_preenchido': request.GET.get('nome', ''),
+        'email_preenchido': request.GET.get('email', ''),
         'token': token if is_inscricao_local else ''
     }
     return render(request, 'eventos/form_inscricao.html', context)
@@ -643,69 +648,85 @@ def api_gerar_token_qrcode(request, evento_id):
 def checkin_evento(request, evento_id):
     evento = get_object_or_404(Evento, id=evento_id)
     signer = TimestampSigner()
-    
-    # Tenta pegar o token (seja pela URL ao escanear, ou pelo form ao enviar o CPF)
     token = request.GET.get('token') or request.POST.get('token')
     
     if not token:
+        logger.warning(f"Tentativa de acesso ao check-in sem token no Evento ID {evento.id} | IP: {request.META.get('REMOTE_ADDR')}")
         messages.error(request, 'Acesso bloqueado. Escaneie o QR Code oficial na recepção do evento.')
         return render(request, 'eventos/checkin_self_service.html', {'evento': evento, 'token_invalido': True})
         
     try:
-        # UX: 45s para conseguir escanear e carregar a página. 3 minutos para digitar o CPF e enviar.
         tempo_limite = 180 if request.method == 'POST' else 45
         evento_id_assinado = signer.unsign(token, max_age=tempo_limite)
-        
         if str(evento.id) != evento_id_assinado:
             raise BadSignature
-            
     except (SignatureExpired, BadSignature):
+        logger.warning(f"Tentativa de check-in com Token Expirado/Inválido no Evento ID {evento.id}")
         messages.error(request, 'O QR Code expirou! Por favor, escaneie novamente com a equipe da recepção.')
         return render(request, 'eventos/checkin_self_service.html', {'evento': evento, 'token_invalido': True})
 
-    # A partir daqui, o token é válido!
     if request.method == 'POST':
         cpf_digitado = request.POST.get('cpf', '')
-        
-        # Limpa tudo o que não for número
         cpf_limpo = ''.join(filter(str.isdigit, cpf_digitado))
         
         if len(cpf_limpo) == 11:
-            # Reconstrói a máscara perfeitamente para bater com o banco de dados
             cpf_formatado = f"{cpf_limpo[:3]}.{cpf_limpo[3:6]}.{cpf_limpo[6:9]}-{cpf_limpo[9:]}"
-            
-            # Busca com o CPF exato e mascarado
             inscricao = evento.inscricoes.filter(cpf=cpf_formatado).first()
             
             if inscricao:
                 if inscricao.status == 'RECUSADA':
+                    logger.warning(f"Check-in Negado: CPF {cpf_formatado} está com inscrição RECUSADA no Evento ID {evento.id}")
                     messages.error(request, 'Sua inscrição foi cancelada anteriormente.')
                 else:
-                    # Promove da fila de espera na hora
                     if inscricao.status == 'LISTA_ESPERA':
                         inscricao.status = 'APROVADA'
+                        logger.info(f"Fila de Espera Promovida: CPF {cpf_formatado} no Evento ID {evento.id}")
                     
                     inscricao.compareceu = True
-                    
-                    # --- REGRA DE MÚLTIPLAS SESSÕES COM COOLDOWN DE 2 HORAS ---
                     agora = timezone.now()
                     intervalo_minimo = timedelta(hours=2)
                     
-                    # Verifica se é o primeiro check-in OU se já passou o tempo mínimo
                     if not inscricao.ultimo_checkin or (agora - inscricao.ultimo_checkin) > intervalo_minimo:
                         inscricao.total_presencas += 1
                         inscricao.ultimo_checkin = agora
                         inscricao.save()
                         
+                        logger.info(f"Check-in Realizado com Sucesso: CPF {cpf_formatado} | Presença {inscricao.total_presencas}/{evento.total_sessoes} | Evento ID {evento.id}")
                         messages.success(request, f'✅ Presença {inscricao.total_presencas}/{evento.total_sessoes} confirmada! Bem-vindo(a), {inscricao.nome_completo.split()[0]}!')
                     else:
-                        # Tocou o QR code de novo antes de 2 horas na mesma sessão
+                        logger.info(f"Check-in Duplicado Barrado (Cooldown): CPF {cpf_formatado} tentou reenviar em menos de 2h | Evento ID {evento.id}")
                         messages.info(request, f'Você já registrou sua presença nesta sessão! (Frequência atual: {inscricao.percentual_frequencia}%)')
             else:
-                messages.warning(request, 'Inscrição não encontrada. Preencha seus dados rapidamente.')
+                # 🚨 NOVO BLOCO: CPF não tem inscrição neste evento. Vamos buscar no histórico geral do sistema
+                logger.info(f"CPF {cpf_formatado} não inscrito no Evento ID {evento.id}. Buscando dados históricos para inscrição expressa...")
                 
-                # Chama a 'inscricao_evento' normal, passando o CPF já mascarado e o Token de autorização VIP
+                outra_inscricao = Inscricao.objects.filter(cpf=cpf_formatado).first()
+                nome_historico = outra_inscricao.nome_completo if outra_inscricao else ''
+                email_historico = outra_inscricao.email if outra_inscricao else ''
+                
+                # Monta os parâmetros de URL codificados com segurança (para evitar quebra por espaços no nome)
                 url_inscricao = reverse('inscricao_evento', args=[evento.id])
-                return redirect(f"{url_inscricao}?cpf={cpf_formatado}&token={token}")
+                parametros = urlencode({
+                    'cpf': cpf_formatado,
+                    'token': token,
+                    'nome': nome_historico,
+                    'email': email_historico
+                })
+                return redirect(f"{url_inscricao}?{parametros}")
                 
     return render(request, 'eventos/checkin_self_service.html', {'evento': evento, 'token': token})
+
+@user_passes_test(e_avaliador)
+def api_dados_monitoramento(request, evento_id):
+    evento = get_object_or_404(Evento, id=evento_id)
+    
+    # Contagem idêntica para manter a consistência
+    total_aprovados = evento.inscricoes.filter(status='APROVADA').count()
+    total_presentes = evento.inscricoes.filter(status='APROVADA', compareceu=True).count()
+    porcentagem = int((total_presentes / total_aprovados) * 100) if total_aprovados > 0 else 0
+    
+    return JsonResponse({
+        'total_aprovados': total_aprovados,
+        'total_presentes': total_presentes,
+        'porcentagem': porcentagem
+    })

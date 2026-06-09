@@ -71,7 +71,7 @@ class Inscricao(models.Model):
     evento = models.ForeignKey(Evento, related_name='inscricoes', on_delete=models.CASCADE)
     nome_completo = models.CharField(max_length=255)
     email = models.EmailField()
-    cpf = models.CharField(max_length=14) # Validaremos no form/js
+    cpf = models.CharField(max_length=14, db_index=True) # Validaremos no form/js
     
     # Campos condicionais (vínculo universidade)
     tem_vinculo_universidade = models.BooleanField(default=True)

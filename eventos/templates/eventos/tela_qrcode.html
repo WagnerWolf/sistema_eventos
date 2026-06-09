@@ -1,5 +1,5 @@
 {% extends 'eventos/base.html' %}
-
+{% load static %}
 {% block content %}
 <div class="row justify-content-center mt-5">
     <div class="col-md-8 col-lg-6 text-center">
@@ -17,8 +17,21 @@
                 <div class="progress mt-4 bg-dark-subtle" style="height: 10px;">
                     <div id="barraTempo" class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
                 </div>
-                <p class="small text-muted mt-2">O código de segurança é atualizado a cada 30 segundos.</p>
-            </div>
+                <p class="small text-muted mt-2 mb-0">O código de segurança é atualizado a cada 30 segundos.</p>
+
+                <div class="mt-4 pt-3 border-top border-secondary row align-items-center">
+                    <div class="col-6 border-end border-secondary">
+                        <small class="text-muted text-uppercase d-block mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Presentes</small>
+                        <h4 class="mb-0 text-success fw-bold">
+                            <span id="livePresentes">0</span><span class="text-white-50 fs-6"> / </span><span id="liveAprovados" class="text-white-50 fs-5">0</span>
+                        </h4>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted text-uppercase d-block mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Ocupação</small>
+                        <h4 id="livePorcentagem" class="mb-0 text-info fw-bold">0%</h4>
+                    </div>
+                </div>
+                </div>
         </div>
         
         <div class="mt-4">
@@ -27,7 +40,7 @@
     </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="{% static 'js/qrcode.min.js' %}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     const qrContainer = document.getElementById("qrcode");
@@ -35,8 +48,12 @@ document.addEventListener("DOMContentLoaded", function() {
     const eventoId = "{{ evento.id }}";
     let qrCodeGerador = null;
 
+    // Elementos do monitoramento
+    const elPresentes = document.getElementById('livePresentes');
+    const elAprovados = document.getElementById('liveAprovados');
+    const elPorcentagem = document.getElementById('livePorcentagem');
+
     function atualizarQRCode() {
-        // O Django injeta a URL exata aqui, evitando qualquer erro 404 de caminhos
         const urlApi = "{% url 'api_token_checkin' evento.id %}";
         
         fetch(urlApi)
@@ -47,7 +64,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 return response.json();
             })
             .then(data => {
-                qrContainer.innerHTML = ""; // Limpa o QR anterior
+                qrContainer.innerHTML = ""; 
                 qrCodeGerador = new QRCode(qrContainer, {
                     text: data.url,
                     width: 232,
@@ -64,7 +81,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function resetarBarraDeTempo() {
-        let timeLeft = 30; // 30 segundos
+        let timeLeft = 30; 
         barraTempo.style.transition = 'none';
         barraTempo.style.width = '100%';
         barraTempo.classList.remove('bg-danger');
@@ -84,13 +101,39 @@ document.addEventListener("DOMContentLoaded", function() {
 
             if (timeLeft <= 0) {
                 clearInterval(window.timerInterval);
-                atualizarQRCode(); // Puxa o próximo token
+                atualizarQRCode(); 
             }
         }, 1000);
     }
 
-    // Dá o start!
+    // --- FUNÇÃO NOVA: Sincroniza a portaria ---
+    function atualizarDadosMonitoramento() {
+        const urlMonitoramento = "{% url 'api_dados_monitoramento' evento.id %}";
+        fetch(urlMonitoramento)
+            .then(response => {
+                if (!response.ok) throw new Error("Erro ao buscar dados da recepção");
+                return response.json();
+            })
+            .then(data => {
+                elPresentes.textContent = data.total_presentes;
+                elAprovados.textContent = data.total_aprovados;
+                elPorcentagem.textContent = data.porcentagem + '%';
+                
+                if (data.porcentagem >= 85) {
+                    elPorcentagem.className = "mb-0 text-warning fw-bold";
+                } else {
+                    elPorcentagem.className = "mb-0 text-info fw-bold";
+                }
+            })
+            .catch(error => console.error("Falha no monitoramento da portaria:", error));
+    }
+
+    // Inicializa as duas rotinas (QR Code e Dados)
     atualizarQRCode();
+    atualizarDadosMonitoramento();
+
+    // Mantém o monitoramento rodando a cada 10 segundos
+    setInterval(atualizarDadosMonitoramento, 10000);
 });
 </script>
 {% endblock %}

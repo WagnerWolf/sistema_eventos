@@ -29,13 +29,13 @@
                     
                     <div class="mb-3">
                         <label for="nome_completo" class="form-label">Nome Completo *</label>
-                        <input type="text" class="form-control" id="nome_completo" name="nome_completo" value="{{ dados_previos.nome_completo|default:'' }}" required>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" id="nome_completo" name="nome_completo" value="{% firstof nome_preenchido dados_previos.nome_completo %}" required>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="email" class="form-label">E-mail *</label>
-                            <input type="email" class="form-control" id="email" name="email" value="{{ dados_previos.email|default:'' }}" required>
+                            <input type="email" class="form-control bg-dark text-white border-secondary" id="email" name="email" value="{% firstof email_preenchido dados_previos.email %}" required>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="cpf" class="form-label">CPF *</label>
