@@ -100,7 +100,7 @@
                                 <div class="row align-items-end mb-3 border-bottom border-secondary pb-3">
                                     <div class="col-md-4">
                                         <label class="form-label text-white small fw-bold">Enunciado da Pergunta</label>
-                                        <input type="text" id="q_enunciado" class="form-control form-control-sm border-secondary" placeholder="Ex: Qual sua restrição alimentar?">
+                                        <input type="text" id="q_enunciado" maxlength="255" class="form-control form-control-sm border-secondary" placeholder="Ex: Qual sua restrição alimentar?">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label text-white small fw-bold">Tipo de Resposta</label>
@@ -111,7 +111,7 @@
                                     </div>
                                     <div class="col-md-3" id="div_opcoes" style="display: none;">
                                         <label class="form-label text-white small fw-bold">Opções (separadas por vírgula)</label>
-                                        <input type="text" id="q_opcoes" class="form-control form-control-sm border-secondary" placeholder="Ex: Vegano, Sem Lactose, Nenhuma">
+                                        <input type="text" id="q_opcoes" maxlength="255" class="form-control form-control-sm border-secondary" placeholder="Ex: Vegano, Sem Lactose, Nenhuma">
                                     </div>
                                     <div class="col-md-2 d-flex flex-column justify-content-end">
                                         <div class="form-check mb-2">
@@ -138,6 +138,19 @@
 </div>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    
+    // --- 🚨 PROTEÇÃO JAVASCRIPT CONTRA TEXTOS COLADOS (CTRL+V) ---
+    const inputsLimitados = document.querySelectorAll('input[maxlength], textarea[maxlength]');
+    inputsLimitados.forEach(input => {
+        input.addEventListener('input', function() {
+            const limite = parseInt(this.getAttribute('maxlength'));
+            if (this.value.length > limite) {
+                this.value = this.value.slice(0, limite);
+            }
+        });
+    });
+    // -------------------------------------------------------------
+
     const switchQuestionario = document.getElementById('switchQuestionario') || document.querySelector('input[name="tem_questionario"]');
     const painelQuestionario = document.getElementById('painelQuestionario');
     const inputJson = document.getElementById('jsonQuestionario') || document.querySelector('input[name="questionario"]');
