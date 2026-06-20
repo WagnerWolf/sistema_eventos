@@ -23,5 +23,6 @@ urlpatterns = [
     path('consultar-inscricao/', views.consultar_inscricao, name='consultar_inscricao'),
     path('cancelar-inscricao/<int:inscricao_id>/', views.cancelar_inscricao, name='cancelar_inscricao'),    
     path('checkin/<int:evento_id>/', views.checkin_evento, name='checkin_evento'),
+    path('painel/api/grupo/novo/', views.api_criar_grupo, name='api_criar_grupo'),
     
 ]

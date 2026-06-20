@@ -5,7 +5,7 @@ class EventoForm(forms.ModelForm):
     class Meta:
         model = Evento
         fields = [
-            'titulo', 'descricao', 'local', 'vagas_totais', 
+            'titulo', 'descricao', 'local', 'grupo', 'vagas_totais', 
             'aberto_comunidade', 'inicio_inscricoes', 'fim_inscricoes', 
             'data_inicio', 'data_fim', 'imagem_capa',
             'tem_questionario', 'questionario', 'aprovacao_automatica',
@@ -19,6 +19,7 @@ class EventoForm(forms.ModelForm):
             'data_inicio': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control bg-dark text-white border-secondary'}),
             'data_fim': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control bg-dark text-white border-secondary'}),
             'descricao': forms.Textarea(attrs={'rows': 4, 'class': 'form-control bg-dark text-white border-secondary'}),
+            'grupo': forms.Select(attrs={'class': 'form-select bg-dark text-white border-secondary'}),
             
             # 🚨 ADICIONADO: maxlength="200"
             'titulo': forms.TextInput(attrs={

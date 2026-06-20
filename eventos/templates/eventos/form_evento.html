@@ -22,6 +22,18 @@
                                 {{ form.local }}
                             </div>
                             <div class="mb-3">
+                                <label class="form-label text-white d-flex justify-content-between align-items-center">
+                                    <span>Grupo de Conflito (Opcional)</span>
+                                    <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalNovoGrupo">
+                                        <i class="bi bi-plus-lg"></i> Novo
+                                    </button>
+                                </label>
+                                {{ form.grupo }}
+                                <div class="form-text text-white-50 small mt-1">
+                                    Eventos do mesmo grupo não permitem inscrições simultâneas (ex: Turma A e Turma B).
+                                </div>
+                            </div>
+                            <div class="mb-3">
                                 <label class="form-label text-white">Descrição Detalhada</label>
                                 {{ form.descricao }}
                             </div>
@@ -136,6 +148,32 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="modalNovoGrupo" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark border-success">
+      <div class="modal-header border-success">
+        <h5 class="modal-title text-success">Criar Novo Grupo</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formNovoGrupo">
+            <div class="mb-3">
+                <label class="form-label text-white">Nome do Grupo *</label>
+                <input type="text" class="form-control bg-dark text-white border-secondary" id="novoGrupoNome" maxlength="200" placeholder="Ex: Oficina de Python" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-white">Descrição (Opcional)</label>
+                <textarea class="form-control bg-dark text-white border-secondary" id="novoGrupoDescricao" rows="2" maxlength="500"></textarea>
+            </div>
+        </form>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" id="btnSalvarGrupo">Salvar Grupo</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     
@@ -247,5 +285,67 @@ document.addEventListener("DOMContentLoaded", function() {
         atualizarLista();
     });
 });
+
+// --- Lógica AJAX para Criar Novo Grupo ---
+    const btnSalvarGrupo = document.getElementById('btnSalvarGrupo');
+    if (btnSalvarGrupo) {
+        btnSalvarGrupo.addEventListener('click', function() {
+            const nomeInput = document.getElementById('novoGrupoNome');
+            const descInput = document.getElementById('novoGrupoDescricao');
+            const nome = nomeInput.value.trim();
+            const desc = descInput.value.trim();
+            
+            if (!nome) {
+                alert('O nome do grupo é obrigatório.');
+                nomeInput.focus();
+                return;
+            }
+            
+            // Efeito de carregamento no botão
+            const btnOriginalText = btnSalvarGrupo.innerText;
+            btnSalvarGrupo.innerText = 'Salvando...';
+            btnSalvarGrupo.disabled = true;
+
+            const formData = new FormData();
+            formData.append('nome', nome);
+            formData.append('descricao', desc);
+            // Pega o token CSRF da página principal
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+            fetch("{% url 'api_criar_grupo' %}", {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'sucesso') {
+                    // Adiciona a nova opção no <select> do Django e a seleciona imediatamente
+                    const selectGrupo = document.getElementById('id_grupo');
+                    const newOption = new Option(data.nome, data.id, true, true);
+                    selectGrupo.add(newOption);
+                    
+                    // Esconde o modal suavemente
+                    const modalEl = document.getElementById('modalNovoGrupo');
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    modalInstance.hide();
+                    
+                    // Limpa os campos para uso futuro
+                    nomeInput.value = '';
+                    descInput.value = '';
+                } else {
+                    alert('Erro: ' + data.mensagem);
+                }
+            })
+            .catch(err => {
+                console.error('Erro de conexão:', err);
+                alert('Ocorreu um erro na rede ao tentar salvar o grupo.');
+            })
+            .finally(() => {
+                btnSalvarGrupo.innerText = btnOriginalText;
+                btnSalvarGrupo.disabled = false;
+            });
+        });
+    }
 </script>
 {% endblock %}

@@ -1,7 +1,7 @@
 import xlwt
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from .models import Evento, Inscricao
+from .models import Evento, Inscricao, GrupoEvento
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 import openpyxl
@@ -21,6 +21,8 @@ from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
 from datetime import timedelta
 from urllib.parse import urlencode
 import logging
+from django.http import JsonResponse
+from django.contrib.auth.decorators import permission_required
 
 logger = logging.getLogger('eventos')
 
@@ -730,3 +732,26 @@ def api_dados_monitoramento(request, evento_id):
         'total_presentes': total_presentes,
         'porcentagem': porcentagem
     })
+
+
+
+@login_required
+def api_criar_grupo(request):
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        descricao = request.POST.get('descricao', '').strip()
+        
+        if not nome:
+            return JsonResponse({'status': 'erro', 'mensagem': 'O nome do grupo é obrigatório.'})
+            
+        try:
+            grupo = GrupoEvento.objects.create(nome=nome, descricao=descricao)
+            return JsonResponse({
+                'status': 'sucesso', 
+                'id': grupo.id, 
+                'nome': grupo.nome
+            })
+        except Exception as e:
+            return JsonResponse({'status': 'erro', 'mensagem': str(e)})
+            
+    return JsonResponse({'status': 'erro', 'mensagem': 'Método não permitido.'}, status=405)
