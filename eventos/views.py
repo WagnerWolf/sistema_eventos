@@ -1,10 +1,9 @@
 import xlwt
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from .models import Evento, Inscricao, GrupoEvento
+from .models import Evento, Inscricao, GrupoEvento, ControleNoShow
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
-import openpyxl
 from django.http import HttpResponse
 from django.urls import reverse
 from django.core.paginator import Paginator
@@ -23,6 +22,7 @@ from urllib.parse import urlencode
 import logging
 from django.http import JsonResponse
 from django.contrib.auth.decorators import permission_required
+from django.db.models import Max
 
 logger = logging.getLogger('eventos')
 
@@ -274,6 +274,8 @@ def inscricao_evento(request, evento_id):
                 respostas_dict[pergunta['id']] = request.POST.get(pergunta['id'], '')
         
         # --- LÓGICA PARA INSCRIÇÃO NOVA ---
+        tem_falta_recente = False # Flag para usarmos na mensagem final
+
         if is_inscricao_local:
             status_inicial = 'APROVADA'
         else:
@@ -283,6 +285,40 @@ def inscricao_evento(request, evento_id):
                     status_inicial = 'APROVADA'
                 else:
                     status_inicial = 'LISTA_ESPERA'
+
+            # === INÍCIO DA LÓGICA DE NO-SHOW ===
+            if getattr(evento, 'aplica_restricao_faltas', False):
+                controle = ControleNoShow.objects.filter(cpf=cpf).first()
+
+                if controle and controle.tipo == 'BLOQUEIO':
+                    # O bloqueio manual é absoluto
+                    tem_falta_recente = True
+                
+                else:
+                    # Prepara a busca pelas faltas automáticas (últimos 60 dias)
+                    data_corte = agora - timedelta(days=60)
+                    
+                    # Filtros base da busca
+                    filtros_busca = {
+                        'cpf': cpf,
+                        'status': 'APROVADA',
+                        'evento__data_fim__lt': agora,
+                        'evento__data_fim__gte': data_corte,
+                        'total_presencas': 0
+                    }
+
+                    # A GRANDE MÁGICA AQUI:
+                    if controle and controle.tipo == 'PERDAO':
+                        # Se tem perdão, só conta como falta os eventos que 
+                        # terminaram DEPOIS que o perdão foi concedido!
+                        filtros_busca['evento__data_fim__gt'] = controle.atualizado_em
+
+                    # Executa a busca no banco desempacotando os filtros (**)
+                    tem_falta_recente = Inscricao.objects.filter(**filtros_busca).exists()
+
+                if tem_falta_recente:
+                    status_inicial = 'LISTA_ESPERA'
+            # === FIM DA LÓGICA DE NO-SHOW ===
 
         nova_inscricao = Inscricao.objects.create(
             evento=evento, nome_completo=nome, email=email, cpf=cpf,
@@ -302,8 +338,12 @@ def inscricao_evento(request, evento_id):
             if status_inicial == 'APROVADA':
                 enviar_email_confirmacao(nova_inscricao, evento)
                 messages.success(request, 'Sua inscrição foi registrada e confirmada com sucesso!')
+            
             elif status_inicial == 'LISTA_ESPERA':
-                messages.warning(request, 'As vagas estão esgotadas. Você foi colocado na Lista de Espera e será aprovado caso alguém desista!')
+                if tem_falta_recente:
+                    messages.warning(request, 'Sua inscrição foi registrada. No entanto, devido à ausência não justificada em eventos recentes, você foi realocado(a) para a Lista de Espera para dar prioridade a outros alunos.')
+                else:
+                    messages.warning(request, 'As vagas estão esgotadas. Você foi colocado na Lista de Espera e será aprovado caso alguém desista!')
             else:
                 messages.success(request, 'Sua inscrição foi registrada com sucesso, aguarde o email de confirmação da equipe!')
             
@@ -722,14 +762,20 @@ def checkin_evento(request, evento_id):
 def api_dados_monitoramento(request, evento_id):
     evento = get_object_or_404(Evento, id=evento_id)
     
-    # Contagem idêntica para manter a consistência
-    total_aprovados = evento.inscricoes.filter(status='APROVADA').count()
-    total_presentes = evento.inscricoes.filter(status='APROVADA', compareceu=True).count()
-    porcentagem = int((total_presentes / total_aprovados) * 100) if total_aprovados > 0 else 0
+    # 1. Pega os aprovados para o denominador (Vagas Ocupadas)
+    aprovados = evento.inscricoes.filter(status='APROVADA').count()
     
+    # 2. Em vez de usar a contagem histórica, usamos a propriedade dinâmica que criamos no modelo
+    # Isso garante que a portaria e o QR Code vejam APENAS as presenças do dia atual
+    presentes = evento.presentes_hoje 
+    
+    # 3. Calcula a lotação real da sala HOJE
+    porcentagem = int((presentes / aprovados) * 100) if aprovados > 0 else 0
+    
+    # Devolve o JSON com as mesmas chaves que o Javascript dos seus templates já espera
     return JsonResponse({
-        'total_aprovados': total_aprovados,
-        'total_presentes': total_presentes,
+        'total_presentes': presentes,
+        'total_aprovados': aprovados,
         'porcentagem': porcentagem
     })
 
@@ -755,3 +801,50 @@ def api_criar_grupo(request):
             return JsonResponse({'status': 'erro', 'mensagem': str(e)})
             
     return JsonResponse({'status': 'erro', 'mensagem': 'Método não permitido.'}, status=405)
+
+
+@permission_required('eventos.change_evento', raise_exception=True)
+def painel_noshow(request):
+    agora = timezone.now()
+    
+    if request.method == 'POST':
+        acao = request.POST.get('acao')
+        cpf = request.POST.get('cpf')
+        
+        if acao == 'remover':
+            ControleNoShow.objects.filter(cpf=cpf).delete()
+            messages.success(request, 'Regra removida. O CPF voltará ao fluxo automático normal.')
+        
+        elif acao == 'salvar':
+            nome = request.POST.get('nome', '')
+            tipo = request.POST.get('tipo')
+            justificativa = request.POST.get('justificativa', '')
+            
+            ControleNoShow.objects.update_or_create(
+                cpf=cpf,
+                defaults={'nome': nome, 'tipo': tipo, 'justificativa': justificativa}
+            )
+            messages.success(request, f'Regra de {tipo} aplicada com sucesso para o CPF {cpf}!')
+            
+        return redirect('painel_noshow')
+
+    # 1. Pega os alunos que caíram na malha fina automática (últimos 60 dias)
+    data_corte = agora - timedelta(days=60)
+    faltosos_automaticos = Inscricao.objects.filter(
+        status='APROVADA',
+        evento__data_fim__lt=agora,
+        evento__data_fim__gte=data_corte,
+        total_presencas=0
+    ).values('cpf', 'nome_completo').annotate(
+        ultimo_evento=Max('evento__titulo'),
+        data_falta=Max('evento__data_fim')
+    ).order_by('-data_falta')
+
+    # 2. Pega a tabela de bloqueios/perdões manuais
+    regras_manuais = ControleNoShow.objects.all().order_by('-atualizado_em')
+
+    context = {
+        'faltosos_automaticos': faltosos_automaticos,
+        'regras_manuais': regras_manuais
+    }
+    return render(request, 'eventos/painel_noshow.html', context)

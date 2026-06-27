@@ -80,6 +80,9 @@
                             {% if user.is_superuser or perms.eventos.change_inscricao %}
                                 <li><a class="dropdown-item text-warning fw-semibold" href="{% url 'painel_conflitos' %}">Auditoria de Conflitos</a></li>
                             {% endif %}
+                            {% if user.is_superuser or perms.eventos.change_inscricao %}
+                                <li><a class="dropdown-item text-warning fw-semibold" href="{% url 'painel_noshow' %}">Gerenciar Lista de Faltosos</a></li>
+                            {% endif %}
                             
                             <!-- Aparece APENAS para quem tem permissão de criar evento (Admin) -->
                             {% if perms.eventos.add_evento %}

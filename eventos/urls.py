@@ -13,6 +13,7 @@ urlpatterns = [
     path('painel/evento/<int:evento_id>/credenciamento/', views.tela_qrcode_checkin, name='tela_qrcode_checkin'),
     path('painel/evento/<int:evento_id>/api/token-checkin/', views.api_gerar_token_qrcode, name='api_token_checkin'),
     path('painel/evento/<int:evento_id>/api/monitoramento/', views.api_dados_monitoramento, name='api_dados_monitoramento'),
+    path('painel/noshow/', views.painel_noshow, name='painel_noshow'),
     # Rota tradicional (já existe)
     path('inscricao/<int:evento_id>/', views.inscricao_evento, name='inscricao_evento'),    
     # NOVA: Rota minúscula que servirá como encurtador

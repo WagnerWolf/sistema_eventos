@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-
+from datetime import timedelta
 
 class GrupoEvento(models.Model):
     nome = models.CharField(max_length=200, help_text="Ex: Oficina de Python (Engloba Turma Manhã e Turma Tarde)")
@@ -31,6 +31,11 @@ class Evento(models.Model):
     data_fim = models.DateTimeField(verbose_name="Término do Evento")
     total_sessoes = models.PositiveIntegerField(default=1, verbose_name="Total de Dias/Sessões")
     frequencia_minima = models.PositiveIntegerField(default=75, verbose_name="Frequência Mínima (%) para Certificado")
+    aplica_restricao_faltas = models.BooleanField(
+        default=False, 
+        verbose_name="Aplicar Política de Faltas",
+        help_text="Se ativado, inscritos que faltaram em eventos passados vão automaticamente para a fila de espera."
+    )
 
     aprovacao_automatica = models.BooleanField(
         default=False,
@@ -53,6 +58,34 @@ class Evento(models.Model):
         if self.inicio_inscricoes and self.fim_inscricoes:
             return self.inicio_inscricoes <= agora <= self.fim_inscricoes
         return False
+    
+    @property
+    def presentes_hoje(self):
+        """Conta check-ins do dia atual de forma segura contra falhas de fuso horário"""
+        try:
+            # 1. Pega a hora exata de agora no fuso do servidor (Brasil)
+            agora_local = timezone.localtime()
+
+            # 2. Zera as horas para pegar a "meia-noite" de hoje
+            inicio_do_dia = agora_local.replace(hour=0, minute=0, second=0, microsecond=0)
+
+            # 3. Adiciona 1 dia para ser o limite máximo (meia-noite de amanhã)
+            fim_do_dia = inicio_do_dia + timedelta(days=1)
+
+            # 4. Usa >= e < para buscar com segurança em qualquer banco de dados
+            return self.inscricoes.filter(
+                ultimo_checkin__gte=inicio_do_dia,
+                ultimo_checkin__lt=fim_do_dia
+            ).count()
+        except Exception as e:
+            # Se der qualquer erro bizarro de data, ele retorna 0 em vez de derrubar a tela
+            print(f"Erro ao calcular presentes: {e}")
+            return 0
+
+    @property
+    def total_presentes_unicos(self):
+        """Conta quantas pessoas únicas vieram em pelo menos um dia do evento"""
+        return self.inscricoes.filter(total_presencas__gt=0).count()
 
     class Meta:
         verbose_name = 'Evento'
@@ -105,3 +138,23 @@ class Inscricao(models.Model):
     class Meta:
         verbose_name = 'Inscrição'
         verbose_name_plural = 'Inscrições'
+
+
+class ControleNoShow(models.Model):
+    TIPO_CHOICES = [
+        ('PERDAO', 'Perdoado (Ignora Faltas Automáticas)'),
+        ('BLOQUEIO', 'Bloqueado Manualmente'),
+    ]
+    
+    cpf = models.CharField(max_length=14, unique=True, verbose_name="CPF")
+    nome = models.CharField(max_length=255, blank=True, null=True)
+    tipo = models.CharField(max_length=15, choices=TIPO_CHOICES)
+    justificativa = models.TextField(blank=True, null=True, help_text="Motivo do perdão ou bloqueio")
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.cpf} - {self.get_tipo_display()}"
+    
+    class Meta:
+        verbose_name = 'Controle de Faltosos'
+        verbose_name_plural = 'Controle de Faltosos'

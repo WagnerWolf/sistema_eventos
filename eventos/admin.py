@@ -1,7 +1,7 @@
 import openpyxl
 from django.http import HttpResponse
 from django.contrib import admin, messages
-from .models import Evento, Inscricao, GrupoEvento
+from .models import Evento, Inscricao, GrupoEvento, ControleNoShow
 
 @admin.action(description='Exportar inscrições para planilha de certificados')
 def exportar_para_excel(modeladmin, request, queryset):
@@ -86,3 +86,20 @@ class EventoAdmin(admin.ModelAdmin):
 class GrupoEventoAdmin(admin.ModelAdmin):
     list_display = ('nome',)
     search_fields = ('nome',)
+
+@admin.register(ControleNoShow)
+class ControleNoShowAdmin(admin.ModelAdmin):
+    # Colunas que vão aparecer na listagem
+    list_display = ('cpf', 'nome', 'tipo', 'atualizado_em')
+    
+    # Filtro lateral (útil para ver só quem tá bloqueado ou só quem foi perdoado)
+    list_filter = ('tipo', 'atualizado_em')
+    
+    # Barra de pesquisa no topo
+    search_fields = ('cpf', 'nome', 'justificativa')
+    
+    # Impede que alguém tente editar a data de atualização manualmente e quebre a nossa regra
+    readonly_fields = ('atualizado_em',)
+    
+    # Ordena mostrando as regras mais recentes primeiro
+    ordering = ('-atualizado_em',)

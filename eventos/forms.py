@@ -9,7 +9,7 @@ class EventoForm(forms.ModelForm):
             'aberto_comunidade', 'inicio_inscricoes', 'fim_inscricoes', 
             'data_inicio', 'data_fim', 'imagem_capa',
             'tem_questionario', 'questionario', 'aprovacao_automatica',
-            'total_sessoes', 'frequencia_minima'
+            'total_sessoes', 'frequencia_minima','aplica_restricao_faltas',
         ]
         
         # Widgets para garantir a estilização correta e limites de caracteres
@@ -20,6 +20,7 @@ class EventoForm(forms.ModelForm):
             'data_fim': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control bg-dark text-white border-secondary'}),
             'descricao': forms.Textarea(attrs={'rows': 4, 'class': 'form-control bg-dark text-white border-secondary'}),
             'grupo': forms.Select(attrs={'class': 'form-select bg-dark text-white border-secondary'}),
+            'aplica_restricao_faltas': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
             
             # 🚨 ADICIONADO: maxlength="200"
             'titulo': forms.TextInput(attrs={
