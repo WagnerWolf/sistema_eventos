@@ -23,6 +23,13 @@ import logging
 from django.http import JsonResponse
 from django.contrib.auth.decorators import permission_required
 from django.db.models import Max
+import io
+from django.http import FileResponse
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
 
 logger = logging.getLogger('eventos')
 
@@ -848,3 +855,78 @@ def painel_noshow(request):
         'regras_manuais': regras_manuais
     }
     return render(request, 'eventos/painel_noshow.html', context)
+
+
+def exportar_frequencia_pdf(request, evento_id):
+    evento = get_object_or_404(Evento, id=evento_id)
+    # Busca apenas os aprovados em ordem alfabética
+    inscricoes = evento.inscricoes.filter(status='APROVADA').order_by('nome_completo')
+
+    # Cria um "arquivo fantasma" na memória
+    buffer = io.BytesIO()
+    
+    # Configura a folha A4, margens e os Metadados do Arquivo (Aba do navegador/Leitor PDF)
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        rightMargin=30, 
+        leftMargin=30, 
+        topMargin=40, 
+        bottomMargin=30,
+        title=f"Frequência - {evento.titulo}",
+        author="Sistema de Eventos"
+    )
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Estilos de Texto
+    title_style = ParagraphStyle(name='CenterTitle', parent=styles['Heading2'], alignment=TA_CENTER)
+    subtitle_style = ParagraphStyle(name='CenterSubTitle', parent=styles['Normal'], alignment=TA_CENTER, textColor=colors.dimgrey)
+
+    # 1. Cabeçalho do Documento
+    elements.append(Paragraph("Relatório de Frequência Digital", title_style))
+    elements.append(Paragraph(f"Evento: {evento.titulo}", title_style))
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph("Atenção: Os dados abaixo foram capturados eletronicamente via sistema de credenciamento (QR Code / Check-in Local).", subtitle_style))
+    elements.append(Spacer(1, 20))
+
+    # 2. Cabeçalho da Tabela
+    data = [['Nome do Participante', 'Documento / Matrícula', 'Presenças', 'Frequência']]
+
+    # 3. Preenchendo as linhas com os inscritos
+    for insc in inscricoes:
+        # Usa a matrícula se houver, caso contrário exibe o CPF
+        identificacao = insc.matricula if insc.tem_vinculo_universidade and insc.matricula else insc.cpf
+        
+        # Mostra o progresso (Ex: 2 / 3)
+        presencas = f"{insc.total_presencas} / {evento.total_sessoes}"
+        
+        # Pega a propriedade que já existe no seu modelo
+        porcentagem = f"{insc.percentual_frequencia}%"
+        
+        data.append([insc.nome_completo, identificacao, presencas, porcentagem])
+
+    # 4. Desenhando a Tabela e os Estilos
+    t = Table(data, colWidths=[220, 140, 80, 80])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')), # Fundo escuro elegante no cabeçalho
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'), # Nome alinhado à esquerda
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f2f2f2')]), # Linhas zebradas
+    ]))
+    
+    elements.append(t)
+    
+    # 5. Constrói o PDF
+    doc.build(elements)
+    
+    # Volta o cursor do buffer para o início para poder ler
+    buffer.seek(0)
+    
+    # Retorna o PDF. as_attachment=False faz ele abrir direto no navegador para visualização
+    return FileResponse(buffer, as_attachment=False, filename=f"frequencia_digital_{evento.id}.pdf")

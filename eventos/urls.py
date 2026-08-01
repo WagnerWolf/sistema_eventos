@@ -25,5 +25,5 @@ urlpatterns = [
     path('cancelar-inscricao/<int:inscricao_id>/', views.cancelar_inscricao, name='cancelar_inscricao'),    
     path('checkin/<int:evento_id>/', views.checkin_evento, name='checkin_evento'),
     path('painel/api/grupo/novo/', views.api_criar_grupo, name='api_criar_grupo'),
-    
+    path('painel/evento/<int:evento_id>/frequencia-pdf/', views.exportar_frequencia_pdf, name='exportar_frequencia_pdf'),
 ]

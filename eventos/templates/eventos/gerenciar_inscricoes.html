@@ -81,7 +81,15 @@ document.addEventListener("DOMContentLoaded", function() {
             <span class="text-muted small">Vagas Disponíveis: {{ evento.vagas_restantes }} de {{ evento.vagas_totais }}</span>
         </div>
         <div>
-            <a href="{% url 'lista_presenca' evento.id %}" target="_blank" class="btn btn-outline-light btn-sm me-2">🖨️ Imprimir Presenças</a>
+            <!-- Botão da Lista Física (Antigo) -->
+            <a href="{% url 'lista_presenca' evento.id %}" target="_blank" class="btn btn-outline-secondary btn-sm me-2" title="Gera lista em branco para assinatura em papel">
+                📝 Lista Manual
+            </a>
+            
+            <!-- Botão do PDF Digital (Novo) -->
+            <a href="{% url 'exportar_frequencia_pdf' evento.id %}" target="_blank" class="btn btn-outline-success btn-sm me-2" title="Gera relatório em PDF com a frequência capturada">
+                📊 Frequência Digital (PDF)
+            </a>
             <a href="{% url 'painel_dashboard' %}" class="btn btn-outline-secondary btn-sm">Voltar ao Painel</a>
         </div>
     </div>
