@@ -368,10 +368,16 @@ def inscricao_evento(request, evento_id):
 @user_passes_test(e_avaliador)
 def painel_dashboard(request):
     # Verifica se o usuário tem permissão de staff (equipe)
-
-
-    # Anota (calcula) o total de inscrições para cada evento
-    eventos = Evento.objects.annotate(total_inscricoes=Count('inscricoes')).order_by('-data_inicio')
+    # 1. Pega os eventos ordenados pelo ID mais recente primeiro (-id)
+    # (Se você já tiver filtros aplicados, basta colocar o .order_by('-id') no final)
+    eventos_lista = Evento.objects.annotate(total_inscricoes=Count('inscricoes')).order_by('-id')
+    # 2. Configura o Paginator para 10 itens por página
+    paginator = Paginator(eventos_lista, 10)
+    
+    # 3. Pega o número da página atual na URL (ex: ?page=2)
+    page_number = request.GET.get('page')
+    # 4. Gera o objeto da página atual (substitua a variável 'eventos' antiga por esta)
+    eventos = paginator.get_page(page_number)
     
     # Estatísticas gerais para os cards do topo
     total_eventos = Evento.objects.count()

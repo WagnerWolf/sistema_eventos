@@ -104,6 +104,48 @@
                 </tbody>
             </table>
         </div>
+        {% if eventos.has_other_pages %}
+<nav aria-label="Navegação de páginas dos eventos" class="mt-4 mb-2">
+    <ul class="pagination justify-content-center">
+        
+        <!-- Botão Primeira / Anterior -->
+        {% if eventos.has_previous %}
+            <li class="page-item">
+                <a class="page-link bg-dark text-success border-secondary" href="?page=1" title="Primeira Página">&laquo; Primeira</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link bg-dark text-success border-secondary" href="?page={{ eventos.previous_page_number }}">Anterior</a>
+            </li>
+        {% else %}
+            <li class="page-item disabled">
+                <span class="page-link bg-dark text-muted border-secondary">&laquo; Primeira</span>
+            </li>
+        {% endif %}
+
+        <!-- Indicador de Página Atual -->
+        <li class="page-item active" aria-current="page">
+            <span class="page-link bg-success border-success text-dark fw-bold">
+                Página {{ eventos.number }} de {{ eventos.paginator.num_pages }}
+            </span>
+        </li>
+
+        <!-- Botão Próxima / Última -->
+        {% if eventos.has_next %}
+            <li class="page-item">
+                <a class="page-link bg-dark text-success border-secondary" href="?page={{ eventos.next_page_number }}">Próxima</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link bg-dark text-success border-secondary" href="?page={{ eventos.paginator.num_pages }}" title="Última Página">Última &raquo;</a>
+            </li>
+        {% else %}
+            <li class="page-item disabled">
+                <span class="page-link bg-dark text-muted border-secondary">Última &raquo;</span>
+            </li>
+        {% endif %}
+        
+    </ul>
+</nav>
+{% endif %}
     </div>
 </div>
 
