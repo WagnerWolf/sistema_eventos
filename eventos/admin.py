@@ -3,6 +3,15 @@ from django.http import HttpResponse
 from django.contrib import admin, messages
 from .models import Evento, Inscricao, GrupoEvento, ControleNoShow
 
+import io
+from django.http import FileResponse
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, portrait
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
+
+
 @admin.action(description='Exportar inscrições para planilha de certificados')
 def exportar_para_excel(modeladmin, request, queryset):
     # Cria o workbook e a planilha
@@ -48,12 +57,86 @@ class InscricaoAdmin(admin.ModelAdmin):
                 inscricao.status = 'LISTA_ESPERA'
             inscricao.save()
 
+# 1. Cria a Ação que gera o PDF
+@admin.action(description="🖨️ Gerar Ficha de Avaliação (PDF)")
+def exportar_candidatos_avaliacao_pdf(modeladmin, request, queryset):
+    buffer = io.BytesIO()
+    
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=portrait(A4), 
+        rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30,
+        title="Ficha de Avaliação de Candidatos",
+        author="Sistema de Eventos UFOPA"
+    )
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(name='CenterTitle', parent=styles['Heading2'], alignment=TA_CENTER)
+    subtitle_style = ParagraphStyle(name='CenterSubTitle', parent=styles['Normal'], alignment=TA_CENTER, textColor=colors.dimgrey)
+
+    # Percorre os eventos selecionados na caixinha do painel admin
+    for evento in queryset:
+        # Filtra apenas quem NÃO está aprovado (Pendente, Espera, etc)
+        inscricoes = evento.inscricoes.exclude(status='APROVADA').order_by('nome_completo')
+        
+        # Se não houver candidatos pendentes, pula a página
+        if not inscricoes.exists():
+            continue
+
+        # Cabeçalho
+        elements.append(Paragraph("Ficha de Avaliação de Candidatos", title_style))
+        elements.append(Paragraph(f"Evento: {evento.titulo}", title_style))
+        elements.append(Spacer(1, 15))
+        
+        # Monta o cabeçalho da tabela
+        data = [['Nome do Candidato', 'Vínculo / Matrícula', 'Curso / Setor', 'Status Atual', 'Parecer do Professor']]
+        
+        for insc in inscricoes:
+            vinculo = insc.matricula if (insc.tem_vinculo_universidade and insc.matricula) else "Comunidade Externa"
+            curso = insc.curso_turma if insc.curso_turma else "-"
+            status = insc.get_status_display()
+            
+            # A última coluna vai vazia para o professor escrever à mão
+            data.append([insc.nome_completo, vinculo, curso, status, ""])
+            
+        # Desenha a tabela
+        # As larguras somam o total da folha A4 em paisagem (~780 pontos)
+        t = Table(data, colWidths=[200, 120, 160, 90, 180])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'), # Nome alinhado à esquerda
+            ('ALIGN', (2, 0), (2, -1), 'LEFT'), # Curso alinhado à esquerda
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('FONTSIZE', (0, 1), (-1, -1), 9), # Letra um pouco menor nas linhas para caber mais dados
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')]),
+        ]))
+        
+        elements.append(t)
+        elements.append(Spacer(1, 30))
+
+    # Se nenhum evento tiver candidatos pendentes, gera um PDF com aviso
+    if not elements:
+        elements.append(Paragraph("Nenhum candidato pendente de avaliação nos eventos selecionados.", title_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+    
+    # Retorna o PDF para visualização direta no navegador
+    return FileResponse(buffer, as_attachment=False, filename="ficha_avaliacao_candidatos.pdf")
+
+
 @admin.register(Evento)
 class EventoAdmin(admin.ModelAdmin):
     list_display = ('titulo', 'data_inicio', 'vagas_totais', 'aberto_comunidade', 'grupo')
     list_filter = ('aberto_comunidade', 'data_inicio')
     search_fields = ('titulo', 'descricao')
-    actions = ['verificar_duplicidade']
+    actions = ['verificar_duplicidade', exportar_candidatos_avaliacao_pdf]
 
     @admin.action(description='Verificar duplicidade de inscritos (Selecione 2 eventos)')
     def verificar_duplicidade(self, request, queryset):
@@ -103,3 +186,5 @@ class ControleNoShowAdmin(admin.ModelAdmin):
     
     # Ordena mostrando as regras mais recentes primeiro
     ordering = ('-atualizado_em',)
+
+
