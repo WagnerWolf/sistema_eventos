@@ -1,0 +1,132 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscrição de Eventos</title>
+    <link rel="icon" type="image/png" href="{% static 'img/logo_ufopa.png' %}">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/bootstrap-icons.css' %}">
+    
+    <style>
+        :root {
+            --bs-primary: #198754; 
+            --bs-primary-rgb: 25, 135, 84;
+            --bs-body-bg: #121212;
+        }
+        
+        /* Ajuste para o rodapé ficar sempre embaixo */
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .main-content {
+            flex: 1;
+        }
+
+        .btn-primary {
+            background-color: var(--bs-primary);
+            border-color: var(--bs-primary);
+        }
+        .btn-primary:hover {
+            background-color: #157347;
+            border-color: #146c43;
+        }
+        .text-primary {
+            color: var(--bs-primary) !important;
+        }
+        .card {
+            background-color: #1e1e1e;
+        }
+        
+        /* Estilização do Footer */
+        footer .text-success {
+            transition: 0.3s;
+        }
+        footer .text-success:hover {
+            text-shadow: 0 0 8px rgba(25, 135, 84, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-success shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center fw-bold" href="{% url 'lista_eventos' %}">
+                <img src="{% static 'img/logo_ufopa.png' %}" alt="Logo UFOPA" width="40" height="40" class="me-2 d-inline-block align-top">
+                <div class="d-flex flex-column">
+                    <span class="fs-5 lh-1 text-light">UFOPA</span>
+                    <small class="text-primary" style="font-size: 0.65rem; letter-spacing: 1px;">PORTAL DE EVENTOS</small>
+                </div>
+            </a>
+            
+            
+            <div class="d-flex align-items-center">
+                <a href="{% url 'consultar_inscricao' %}" class="btn btn-outline-light btn-sm me-2">
+    <i class="bi bi-search me-1"></i> Minhas Inscrições
+</a>
+                {% if user.is_authenticated %}
+                    <span class="text-light me-3 small d-none d-md-inline">Olá, {{ user.username }}</span>
+                    
+                    <div class="dropdown me-3">
+                        <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Acesso Rápido
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-dark border-success">
+                            <li><a class="dropdown-item" href="{% url 'painel_dashboard' %}">Painel de Eventos</a></li>
+                            
+                            <!-- Aparece para Avaliadores e Admins -->
+                            {% if user.is_superuser or perms.eventos.change_inscricao %}
+                                <li><a class="dropdown-item text-warning fw-semibold" href="{% url 'painel_conflitos' %}">Auditoria de Conflitos</a></li>
+                            {% endif %}
+                            
+                            <!-- Aparece APENAS para quem tem permissão de criar evento (Admin) -->
+                            {% if perms.eventos.add_evento %}
+                                <li><hr class="dropdown-divider border-secondary"></li>
+                                <li><a class="dropdown-item" href="{% url 'novo_evento' %}">Criar Novo Evento</a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    
+                    <form method="POST" action="{% url 'logout' %}" class="m-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger btn-sm">Sair</button>
+                    </form>
+                    
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn btn-outline-secondary btn-sm">Acesso Equipe</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4 main-content">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
+    </div>
+
+    <footer class="footer py-4 bg-dark border-top border-secondary mt-5">
+        <div class="container text-center">
+            <p class="text-muted mb-0 small">
+                &copy; {% now "Y" %} Universidade Federal do Oeste do Pará - UFOPA.
+            </p>
+            <p class="mt-1">
+                <span class="text-secondary small">Desenvolvido por </span>
+                <span class="text-primary fw-bold">Wagner Wolf</span>
+            </p>
+        </div>
+    </footer>
+
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

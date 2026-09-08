@@ -1,0 +1,82 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="text-danger fw-bold mb-1"><i class="bi bi-shield-exclamation me-2"></i>Auditoria de Inscrições</h2>
+            <p class="text-white-50">Resolução de CPFs duplicados em eventos correlacionados.</p>
+        </div>
+        <a href="{% url 'lista_eventos' %}" class="btn btn-outline-secondary">Voltar ao Portal</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        {% if conflitos %}
+            {% for conflito in conflitos %}
+                <div class="card bg-dark border-danger mb-4 shadow-sm">
+                    <div class="card-header border-danger bg-dark d-flex justify-content-between align-items-center py-3">
+                        <h5 class="mb-0 text-light">
+                            <span class="badge bg-danger me-2">Conflito Detectado</span>
+                            Grupo: <span class="text-warning">{{ conflito.grupo }}</span>
+                        </h5>
+                        <span class="text-white-50 fw-bold">CPF: {{ conflito.cpf }}</span>
+                    </div>
+                    
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover mb-0 align-middle">
+                                <thead>
+                                    <tr class="text-white-50 small text-uppercase">
+                                        <th class="ps-4">Inscrito</th>
+                                        <th>Evento (Turno)</th>
+                                        <th>Data/Hora</th>
+                                        <th>Status Atual</th>
+                                        <th class="text-end pe-4">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for inscricao in conflito.inscricoes %}
+                                    <tr>
+                                        <td class="ps-4 fw-semibold text-light">{{ inscricao.nome_completo }}</td>
+                                        <td>{{ inscricao.evento.titulo }}</td>
+                                        <td>{{ inscricao.data_inscricao|date:"d/m/Y H:i" }}</td>
+                                        <td>
+                                            {% if inscricao.status == 'APROVADA' %}
+                                                <span class="badge bg-success">Aprovada</span>
+                                            {% elif inscricao.status == 'PENDENTE' %}
+                                                <span class="badge bg-warning text-dark">Pendente</span>
+                                            {% elif inscricao.status == 'CANCELADA' %}
+                                                <span class="badge bg-danger">Cancelada</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ inscricao.status }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            <!-- Botão de Ação Inline -->
+                                            <form method="POST" action="{% url 'resolver_conflito' inscricao.id %}" class="d-inline">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-outline-success btn-sm fw-bold" onclick="return confirm('ATENÇÃO:\nIsso vai APROVAR esta inscrição e CANCELAR todas as outras deste mesmo CPF neste grupo. Deseja continuar?')">
+                                                    <i class="bi bi-check2-circle me-1"></i> Manter
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert bg-dark border-success text-center py-5 shadow-sm">
+                <h1 class="display-1 text-success mb-3"><i class="bi bi-check-circle-fill"></i></h1>
+                <h3 class="text-light fw-bold">Tudo limpo por aqui!</h3>
+                <p class="text-white-50 mb-0">Não há nenhum conflito de CPFs ou inscrições pendentes aguardando resolução.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,8 @@
+SECRET_KEY=
+DEBUG=False
+RESEND_API_KEY=
+DB_NAME=eventos_db
+DB_USER=seu_usuario
+DB_PASSWORD=sua_senha
+DB_HOST=127.0.0.1
+DB_PORT=3306

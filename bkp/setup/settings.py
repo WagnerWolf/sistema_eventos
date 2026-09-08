@@ -170,12 +170,10 @@ LOGGING = {
     'handlers': {
         'file': {
             'level': 'INFO',
-            'class': 'logging.handlers.RotatingFileHandler',
+            'class': 'logging.FileHandler',
             'filename': BASE_DIR / 'logs/checkin.log',
             'formatter': 'verbose',
             'encoding': 'utf-8',
-            'maxBytes': 5 * 1024 * 1024,
-            'backupCount': 3,
         },
     },
     'loggers': {
@@ -187,15 +185,3 @@ LOGGING = {
     },
 }
 
-# ==================================================
-# Segurança de produção / Cloudflare Tunnel
-# ==================================================
-
-SESSION_COOKIE_SECURE = True
-SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SECURE = True
-
-SECURE_PROXY_SSL_HEADER = (
-    'HTTP_X_FORWARDED_PROTO',
-    'https',
-)

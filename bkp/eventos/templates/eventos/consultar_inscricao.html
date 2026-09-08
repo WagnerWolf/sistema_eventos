@@ -1,0 +1,202 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        
+        <!-- Formulário de Busca -->
+        <div class="card bg-dark border-success shadow-sm mb-4">
+            <div class="card-header border-bottom border-success py-3">
+                <h4 class="mb-0 text-primary fw-bold">
+                    <i class="bi bi-search me-2"></i>Minhas Inscrições
+                </h4>
+            </div>
+            <div class="card-body">
+                <p class="text-white-50 small mb-4">
+                    Informe seu CPF e E-mail para acessar seu histórico de eventos, verificar seu status atual ou desistir de uma vaga.
+                </p>
+                
+                <form method="GET" action="{% url 'consultar_inscricao' %}" class="row g-3">
+                    <div class="col-md-5">
+                        <label class="form-label text-white small">CPF</label>
+                        <!-- Adicionado id="inputCpf" e maxlength="14" -->
+                        <input type="text" name="cpf" id="inputCpf" class="form-control bg-dark text-white border-secondary" value="{{ cpf_buscado }}" maxlength="14" placeholder="000.000.000-00" required>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label text-white small">E-mail</label>
+                        <input type="email" name="email" class="form-control bg-dark text-white border-secondary" value="{{ email_buscado }}" placeholder="seu@email.com" required>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Área de Resultados -->
+        {% if buscou %}
+            {% if inscricoes %}
+                <!-- Barra de Filtros Dinâmicos (JavaScript) -->
+                <div class="d-flex justify-content-between align-items-center border-bottom border-secondary pb-2 mb-3 mt-4">
+                    <h6 class="text-success text-uppercase small mb-0">Resultados Encontrados</h6>
+                    
+                    <div class="d-flex gap-2">
+                        <select id="filtroAno" class="form-select form-select-sm bg-dark text-white border-secondary" style="width: auto;">
+                            <option value="">Todos os Anos</option>
+                            {% for ano in anos_usuario %}
+                                <option value="{{ ano }}">{{ ano }}</option>
+                            {% endfor %}
+                        </select>
+                        
+                        <select id="filtroStatus" class="form-select form-select-sm bg-dark text-white border-secondary" style="width: auto;">
+                            <option value="">Todos os Status</option>
+                            <option value="APROVADA">Aprovadas</option>
+                            <option value="PENDENTE">Pendentes</option>
+                            <option value="LISTA_ESPERA">Lista de Espera</option>
+                            <option value="RECUSADA">Recusadas / Canceladas</option>
+                        </select>
+                    </div>
+                </div>
+            
+                <div class="list-group mb-4" id="listaInscricoes">
+                    {% for inscricao in inscricoes %}
+                        <!-- Os data-attributes são a chave para o Javascript funcionar -->
+                        <div class="list-group-item bg-dark border-secondary text-white mb-2 rounded shadow-sm inscricao-item" 
+                             data-ano="{{ inscricao.evento.data_inicio.year }}" 
+                             data-status="{{ inscricao.status }}">
+                            
+                            <div class="d-flex w-100 justify-content-between align-items-center mb-2">
+                                <h6 class="mb-1 text-light fw-bold">{{ inscricao.evento.titulo }}</h6>
+                                
+                                {% if inscricao.status == 'APROVADA' %}
+                                    <span class="badge bg-success">Aprovada</span>
+                                {% elif inscricao.status == 'PENDENTE' %}
+                                    <span class="badge bg-warning text-dark">Pendente</span>
+                                {% elif inscricao.status == 'LISTA_ESPERA' %}
+                                    <span class="badge bg-info text-dark">Lista de Espera</span>
+                                {% elif inscricao.status == 'RECUSADA' %}
+                                    <span class="badge bg-danger">Recusada</span>
+                                {% endif %}
+                            </div>
+                            
+                            <p class="mb-1 small text-white-50">
+                                <strong>Realização:</strong> {{ inscricao.evento.data_inicio|date:"d/m/Y H:i" }} | 
+                                <strong>Local:</strong> {{ inscricao.evento.local|default:"A definir" }}
+                            </p>
+                            
+                            {% if inscricao.status in 'APROVADA,PENDENTE,LISTA_ESPERA' %}
+                                <div class="mt-3 text-end border-top border-secondary pt-2">
+                                    {% if inscricao.evento.fim_inscricoes and agora > inscricao.evento.fim_inscricoes %}
+                                        <span class="text-danger small me-2"><i class="bi bi-lock-fill"></i> Inscrições encerradas.</span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary disabled">Desistir da Vaga</button>
+                                    {% else %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar{{ inscricao.id }}">
+                                            Desistir da Vaga
+                                        </button>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Modal de Confirmação -->
+                                <div class="modal fade" id="modalCancelar{{ inscricao.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content bg-dark text-white border-danger">
+                                            <div class="modal-header border-secondary">
+                                                <h1 class="modal-title fs-5 text-danger">Confirmar Desistência</h1>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p>Tem certeza que deseja cancelar sua inscrição em <strong>{{ inscricao.evento.titulo }}</strong>?</p>
+                                                {% if inscricao.status == 'APROVADA' %}
+                                                    <p class="text-warning small mb-0"><i class="bi bi-exclamation-triangle"></i> Atenção: Ao confirmar, sua vaga será repassada para o próximo da fila.</p>
+                                                {% endif %}
+                                            </div>
+                                            <div class="modal-footer border-secondary">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
+                                                <form method="POST" action="{% url 'cancelar_inscricao' inscricao.id %}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="cpf" value="{{ cpf_buscado }}">
+                                                    <input type="hidden" name="email" value="{{ email_buscado }}">
+                                                    <button type="submit" class="btn btn-sm btn-danger">Sim, Quero Cancelar</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Mensagem mostrada via JS quando os filtros escondem tudo -->
+                <div id="msgNenhumResultado" class="alert alert-dark border-secondary text-center text-white-50 py-4" style="display: none;">
+                    Nenhuma inscrição corresponde aos filtros selecionados.
+                </div>
+
+            {% else %}
+                <div class="alert alert-dark border-secondary text-center text-white-50 py-4 mt-4">
+                    Nenhuma inscrição encontrada para o CPF e E-mail informados.
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<!-- Scripts (Filtro e Máscara de CPF) -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    
+    // --- MÁSCARA DO CPF ---
+    const inputCpf = document.getElementById('inputCpf');
+    if (inputCpf) {
+        inputCpf.addEventListener('input', function(e) {
+            let valor = e.target.value.replace(/\D/g, ""); // Remove tudo que não for número
+            
+            // Aplica a pontuação gradualmente
+            valor = valor.replace(/(\d{3})(\d)/, "$1.$2");
+            valor = valor.replace(/(\d{3})(\d)/, "$1.$2");
+            valor = valor.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+            
+            e.target.value = valor;
+        });
+    }
+    // -----------------------
+
+    // --- FILTRO DINÂMICO ---
+    const filtroAno = document.getElementById('filtroAno');
+    const filtroStatus = document.getElementById('filtroStatus');
+    const itens = document.querySelectorAll('.inscricao-item');
+    const msgVazio = document.getElementById('msgNenhumResultado');
+
+    function aplicarFiltros() {
+        const anoSelecionado = filtroAno.value;
+        const statusSelecionado = filtroStatus.value;
+        let itensVisiveis = 0;
+
+        itens.forEach(item => {
+            const itemAno = item.getAttribute('data-ano');
+            const itemStatus = item.getAttribute('data-status');
+            
+            const exibeAno = (anoSelecionado === '') || (itemAno === anoSelecionado);
+            const exibeStatus = (statusSelecionado === '') || (itemStatus === statusSelecionado);
+
+            if (exibeAno && exibeStatus) {
+                item.style.display = ''; 
+                itensVisiveis++;
+            } else {
+                item.style.display = 'none'; 
+            }
+        });
+
+        if (msgVazio) {
+            msgVazio.style.display = (itensVisiveis === 0) ? 'block' : 'none';
+        }
+    }
+
+    if (filtroAno && filtroStatus) {
+        filtroAno.addEventListener('change', aplicarFiltros);
+        filtroStatus.addEventListener('change', aplicarFiltros);
+    }
+    // -----------------------
+});
+</script>
+{% endblock %}

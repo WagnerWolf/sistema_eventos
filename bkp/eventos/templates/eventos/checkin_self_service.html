@@ -1,0 +1,113 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="col-11 col-md-6 col-lg-5">
+        <div class="card bg-dark border-success shadow-lg">
+            <div class="card-body p-4 text-center">
+                
+                {% if token_invalido %}
+                    <i class="bi bi-x-octagon-fill text-danger mb-3" style="font-size: 4rem;"></i>
+                    <h3 class="text-danger fw-bold mb-4">Acesso Negado</h3>
+                {% else %}
+                    <i class="bi bi-person-check-fill text-success" style="font-size: 3rem;"></i>
+                    <h3 class="text-primary fw-bold mt-3 mb-1">Check-in</h3>
+                    <h6 class="text-white-50 mb-4">{{ evento.titulo }}</h6>
+                    
+                    <form id="formCheckin" method="POST" action="{% url 'checkin_evento' evento.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="token" value="{{ token }}">
+                        
+                        <div class="mb-4 text-start">
+                            <label class="form-label text-light small fw-bold">Informe seu CPF</label>
+                            <input type="text" name="cpf" id="inputCpfCheckin" class="form-control form-control-lg bg-dark text-white border-success text-center fs-4" placeholder="000.000.000-00" maxlength="14" required autocomplete="off">
+                            <div id="erroCpf" class="text-danger small mt-2 fw-bold" style="display: none;">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i> CPF inválido. Verifique a numeração.
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow">
+                            CONFIRMAR PRESENÇA
+                        </button>
+                    </form>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const formCheckin = document.getElementById('formCheckin');
+    const inputCpf = document.getElementById('inputCpfCheckin');
+    const erroCpf = document.getElementById('erroCpf');
+
+    // Função matemática para validar o CPF
+    function validarCPF(cpf) {
+        cpf = cpf.replace(/[^\d]+/g, ''); // Remove máscara
+        if (cpf == '') return false;
+        
+        // Elimina CPFs inválidos conhecidos
+        if (cpf.length != 11 || 
+            /^(\d)\1{10}$/.test(cpf)) // Ex: 00000000000, 11111111111
+            return false;
+            
+        // Valida 1o dígito 
+        let add = 0;
+        for (let i = 0; i < 9; i++)
+            add += parseInt(cpf.charAt(i)) * (10 - i);
+        let rev = 11 - (add % 11);
+        if (rev == 10 || rev == 11) rev = 0;
+        if (rev != parseInt(cpf.charAt(9))) return false;
+        
+        // Valida 2o dígito 
+        add = 0;
+        for (let i = 0; i < 10; i++)
+            add += parseInt(cpf.charAt(i)) * (11 - i);
+        rev = 11 - (add % 11);
+        if (rev == 10 || rev == 11) rev = 0;
+        if (rev != parseInt(cpf.charAt(10))) return false;
+        
+        return true;
+    }
+
+    if (inputCpf) {
+        // Aplica a máscara enquanto digita e limpa o alerta de erro
+        inputCpf.addEventListener('input', function(e) {
+            let valor = e.target.value.replace(/\D/g, "");
+            valor = valor.replace(/(\d{3})(\d)/, "$1.$2");
+            valor = valor.replace(/(\d{3})(\d)/, "$1.$2");
+            valor = valor.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+            e.target.value = valor;
+
+            // Restaura as cores padrão se o usuário voltar a digitar
+            inputCpf.classList.remove('border-danger', 'text-danger');
+            inputCpf.classList.add('border-success', 'text-white');
+            erroCpf.style.display = 'none';
+        });
+        
+        inputCpf.focus();
+    }
+
+    // Intercepta o envio do formulário
+    if (formCheckin) {
+        formCheckin.addEventListener('submit', function(e) {
+            if (!validarCPF(inputCpf.value)) {
+                e.preventDefault(); // Trava o envio para o servidor
+                
+                // Aplica estilo de erro
+                inputCpf.classList.remove('border-success', 'text-white');
+                inputCpf.classList.add('border-danger', 'text-danger');
+                erroCpf.style.display = 'block';
+                
+                // Dá uma leve tremida visual (opcional/UX)
+                inputCpf.style.transform = 'translateX(-5px)';
+                setTimeout(() => inputCpf.style.transform = 'translateX(5px)', 50);
+                setTimeout(() => inputCpf.style.transform = 'translateX(0)', 100);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

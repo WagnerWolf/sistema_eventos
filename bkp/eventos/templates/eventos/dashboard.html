@@ -1,0 +1,119 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center border-bottom border-success pb-2">
+        <h2 class="mb-0 text-light fw-bold">Painel de Controle</h2>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card bg-dark border-success h-100 shadow">
+            <div class="card-body text-center d-flex flex-column justify-content-center py-4">
+                <h5 class="card-title text-muted text-uppercase fs-6 mb-2">Total de Eventos</h5>
+                <h2 class="display-4 text-primary fw-bold mb-0">{{ total_eventos }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card bg-dark border-success h-100 shadow">
+            <div class="card-body text-center d-flex flex-column justify-content-center py-4">
+                <h5 class="card-title text-muted text-uppercase fs-6 mb-2">Inscrições Realizadas</h5>
+                <h2 class="display-4 text-primary fw-bold mb-0">{{ total_inscricoes_geral }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card bg-dark border-warning h-100 shadow">
+            <div class="card-body text-center d-flex flex-column justify-content-center py-4">
+                <h5 class="card-title text-muted text-uppercase fs-6 mb-2">Inscrições Pendentes</h5>
+                <h2 class="display-4 text-warning fw-bold mb-0">{{ inscricoes_pendentes }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-secondary shadow">
+    <div class="card-header bg-dark border-bottom border-success py-3">
+        <h4 class="mb-0 text-primary fw-bold">Gerenciamento de Eventos</h4>
+    </div>
+    
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-striped table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4" style="width: 35%;">Evento</th>
+                        <th style="width: 20%;">Data de Início</th>
+                        <th class="text-center" style="width: 15%;">Vagas (Total)</th>
+                        <th class="text-center" style="width: 15%;">Inscritos</th>
+                        <th class="text-end pe-4" style="width: 15%;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for evento in eventos %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-light">{{ evento.titulo }}</td>
+                        <td>{{ evento.data_inicio|date:"d/m/Y H:i" }}</td>
+                        <td class="text-center">{{ evento.vagas_totais }}</td>
+                        <td class="text-center">
+                            <span class="badge bg-success px-3 py-2 fs-6">{{ evento.total_inscricoes }}</span>
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="d-inline-flex gap-2">
+                                <a href="{% url 'gerenciar_inscricoes' evento.id %}" class="btn btn-sm btn-primary fw-semibold" title="Gerenciar Inscrições">
+                                    <i class="bi bi-people-fill me-1"></i> Inscritos
+                                </a>
+
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Mais Opções">
+                                        <i class="bi bi-gear-fill"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end border-secondary shadow">
+                                        <li>
+                                            <a class="dropdown-item py-2" href="#" onclick="copiarLinkDireto('{{ request.scheme }}://{{ request.get_host }}{% url 'link_curto_evento' evento.id %}')">
+                                                <i class="bi bi-link-45deg text-warning me-2"></i> Copiar Link Curto
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item py-2" href="{% url 'tela_qrcode_checkin' evento.id %}" target="_blank">
+                                                <i class="bi bi-qr-code-scan text-info me-2"></i> Tela de Check-in
+                                            </a>
+                                        </li>
+                                        {% if user.is_superuser %}
+                                        <li><hr class="dropdown-divider border-secondary"></li>
+                                        <li>
+                                            <a class="dropdown-item py-2 text-success fw-semibold" href="{% url 'exportar_excel' evento.id %}">
+                                                <i class="bi bi-file-earmark-excel-fill me-2"></i> Exportar Excel (.xls)
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-calendar-x fs-3 d-block mb-2"></i> Nenhum evento cadastrado no sistema ainda.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function copiarLinkDireto(url) {
+    navigator.clipboard.writeText(url).then(function() {
+        alert("Link de inscrição encurtado copiado para a área de transferência!");
+    }, function(err) {
+        console.error('Erro ao copiar o link: ', err);
+    });
+}
+</script>
+{% endblock %}

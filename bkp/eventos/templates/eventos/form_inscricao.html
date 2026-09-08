@@ -1,0 +1,290 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-secondary shadow">
+            {% if evento.imagem_capa %}
+                <img src="{{ evento.imagem_capa.url }}" class="card-img-top" alt="Capa" style="max-height: 300px; object-fit: cover;">
+            {% endif %}
+            
+            <div class="card-header bg-dark border-bottom border-success">
+                <h3 class="mb-0 text-primary">Inscrição: {{ evento.titulo }}</h3>
+            </div>
+            
+            <div class="card-body">
+                <form method="POST" action="{% url 'inscricao_evento' evento.id %}" id="formInscricao">
+                    {% csrf_token %}
+                    {% if token %}
+                        <input type="hidden" name="token" value="{{ token }}">
+                        
+                        <div class="alert alert-success d-flex align-items-center mb-4 border-success shadow-sm">
+                            <i class="bi bi-lightning-fill fs-4 me-3"></i>
+                            <div>
+                                <strong>Inscrição Expressa Local</strong><br>
+                                Preencha seus dados para habilitar sua entrada imediata no evento.
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label for="nome_completo" class="form-label">Nome Completo *</label>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" id="nome_completo" name="nome_completo" maxlength="255" value="{% firstof nome_preenchido dados_previos.nome_completo %}" required>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">E-mail *</label>
+                            <input type="email" class="form-control bg-dark text-white border-secondary" id="email" name="email" maxlength="254" value="{% firstof email_preenchido dados_previos.email %}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="cpf" class="form-label">CPF *</label>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" id="cpf" name="cpf" maxlength="14" value="{% firstof cpf_preenchido dados_previos.cpf %}" required>
+                        </div>
+                    </div>
+
+                    {% if evento.aberto_comunidade %}
+                        <div class="form-check form-switch mb-4 mt-2">
+                            <input class="form-check-input" type="checkbox" role="switch" id="tem_vinculo" name="tem_vinculo" checked>
+                            <label class="form-check-label text-white" for="tem_vinculo">Possuo vínculo com a universidade (Aluno/Servidor)</label>
+                        </div>
+                    {% else %}
+                        <input type="hidden" id="tem_vinculo" name="tem_vinculo" value="on">
+                        <div class="alert alert-info bg-dark-subtle text-info border-info py-2 small mb-4 mt-2">
+                            ℹ️ Este evento é restrito à comunidade acadêmica. Os dados de vínculo são obrigatórios.
+                        </div>
+                    {% endif %}
+
+                    <div id="bloco_vinculo" class="row bg-dark-subtle p-3 rounded mb-4 border border-secondary">
+                        <div class="col-md-6 mb-3 mb-md-0">
+                            <label for="matricula" class="form-label">Número de Matrícula</label>
+                            <input type="text" class="form-control" id="matricula" name="matricula" maxlength="50" value="{{ dados_previos.matricula|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="curso_turma" class="form-label">Curso e Turma / Setor</label>
+                            <input type="text" class="form-control" id="curso_turma" name="curso_turma" maxlength="100" value="{{ dados_previos.curso_turma|default:'' }}">
+                        </div>
+                    </div>
+
+                    {% if evento.tem_questionario and evento.questionario %}
+                    <div class="row bg-dark-subtle p-3 rounded mb-4 border border-secondary">
+                        <h5 class="text-success border-bottom border-secondary pb-2 mb-3">Informações Adicionais</h5>
+                        
+                        {% for pergunta in evento.questionario %}
+                            <div class="col-12 mb-3">
+                                <label for="{{ pergunta.id }}" class="form-label text-white fw-bold">
+                                    {{ pergunta.enunciado }} 
+                                    {% if pergunta.obrigatoria %}<span class="text-danger">*</span>{% endif %}
+                                </label>
+                                
+                                {% if pergunta.tipo == 'texto' %}
+                                    <input type="text" class="form-control border-secondary" id="{{ pergunta.id }}" name="{{ pergunta.id }}" {% if pergunta.obrigatoria %}required{% endif %}>
+                                
+                                {% elif pergunta.tipo == 'escolha' %}
+                                    <select class="form-select border-secondary" id="{{ pergunta.id }}" name="{{ pergunta.id }}" {% if pergunta.obrigatoria %}required{% endif %}>
+                                        <option value="">Selecione uma opção...</option>
+                                        {% for opcao in pergunta.opcoes %}
+                                            <option value="{{ opcao }}">{{ opcao }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div id="botoes_acao">
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">Confirmar Inscrição</button>
+                            <a href="{% url 'lista_eventos' %}" class="btn btn-outline-secondary">Voltar</a>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        
+        // --- 🚨 PROTEÇÃO JAVASCRIPT CONTRA TEXTOS COLADOS (CTRL+V) ---
+        const inputsLimitados = document.querySelectorAll('input[maxlength], textarea[maxlength]');
+        inputsLimitados.forEach(input => {
+            input.addEventListener('input', function() {
+                const limite = parseInt(this.getAttribute('maxlength'));
+                if (this.value.length > limite) {
+                    this.value = this.value.slice(0, limite);
+                }
+            });
+        });
+        // -------------------------------------------------------------
+
+        const checkboxVinculo = document.getElementById('tem_vinculo');
+        const blocoVinculo = document.getElementById('bloco_vinculo');
+        const inputMatricula = document.getElementById('matricula');
+        const inputCurso = document.getElementById('curso_turma');
+
+        function toggleVinculo() {
+            if (checkboxVinculo.type === 'checkbox' && !checkboxVinculo.checked) {
+                blocoVinculo.style.display = 'none';
+                inputMatricula.removeAttribute('required');
+                inputCurso.removeAttribute('required');
+            } else {
+                blocoVinculo.style.display = 'flex'; 
+                inputMatricula.setAttribute('required', 'required');
+                inputCurso.setAttribute('required', 'required');
+            }
+        }
+
+        toggleVinculo();
+
+        if (checkboxVinculo.type === 'checkbox') {
+            checkboxVinculo.addEventListener('change', toggleVinculo);
+        }
+
+        // --- MÁSCARA DE CPF ---
+        const cpfInput = document.getElementById('cpf');
+        
+        cpfInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, ''); 
+            if (value.length > 11) value = value.slice(0, 11); 
+            
+            value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+            
+            e.target.value = value;
+        });
+
+        // --- VALIDAÇÃO MATEMÁTICA DO CPF ---
+        function validarCPF(cpf) {
+            cpf = cpf.replace(/[^\d]+/g, ''); 
+            if (cpf == '' || cpf.length != 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+            
+            let add = 0;
+            for (let i = 0; i < 9; i++) add += parseInt(cpf.charAt(i)) * (10 - i);
+            let rev = 11 - (add % 11);
+            if (rev == 10 || rev == 11) rev = 0;
+            if (rev != parseInt(cpf.charAt(9))) return false;
+            
+            add = 0;
+            for (let i = 0; i < 10; i++) add += parseInt(cpf.charAt(i)) * (11 - i);
+            rev = 11 - (add % 11);
+            if (rev == 10 || rev == 11) rev = 0;
+            if (rev != parseInt(cpf.charAt(10))) return false;
+            
+            return true;
+        }
+
+        // --- INTERCEPTA O ENVIO DO FORMULÁRIO (AJAX) ---
+        const form = document.getElementById('formInscricao');
+        form.addEventListener('submit', function(e) {
+            e.preventDefault(); 
+
+            const btnSubmit = document.querySelector('#botoes_acao button[type="submit"]');
+            if (btnSubmit) {
+                btnSubmit.disabled = true;
+                btnSubmit.innerText = 'Processando...';
+            }
+
+            if (!validarCPF(cpfInput.value)) {
+                alert('Por favor, insira um CPF válido.');
+                cpfInput.classList.add('is-invalid'); 
+                cpfInput.focus();
+                
+                if (btnSubmit) {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerText = 'Confirmar Inscrição';
+                }
+                return;
+            } else {
+                cpfInput.classList.remove('is-invalid');
+                cpfInput.classList.add('is-valid'); 
+            }
+
+            if (document.getElementById('confirmar_transferencia_input')) {
+                form.submit();
+                return;
+            }
+
+            const formData = new FormData(form);
+            formData.append('ajax_check', '1'); 
+
+            fetch("{% url 'inscricao_evento' evento.id %}", {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'erro') {
+                    alert(data.mensagem);
+                    if (btnSubmit) {
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerText = 'Confirmar Inscrição';
+                    }
+                } else if (data.status === 'conflito_grupo') {
+                    let divergenciasHtml = '';
+                    let avisoPrincipal = '';
+
+                    if (data.divergencias && data.divergencias.length > 0) {
+                        let listaItens = data.divergencias.map(d => 
+                            `<li class="mb-3 text-white-50 border-bottom border-secondary pb-2">
+                                <strong class="text-light d-block mb-1">${d.campo}</strong>
+                                De: <del class="text-danger me-2">${d.antigo}</del> <br>
+                                Para: <strong class="text-success">${d.novo}</strong>
+                            </li>`
+                        ).join('');
+                        
+                        divergenciasHtml = `
+                            <div class="mt-4 p-3 bg-dark rounded border border-warning shadow-sm">
+                                <h6 class="text-warning fw-bold text-uppercase mb-3">
+                                    <i class="bi bi-search me-2"></i>Por favor, revise as informações abaixo
+                                </h6>
+                                <p class="small mb-3 text-light">Detectamos diferenças entre os dados que você acabou de preencher e sua inscrição original:</p>
+                                <ul class="small mb-3 ps-0" style="list-style: none;">${listaItens}</ul>
+                                
+                                <div class="form-check bg-dark-subtle p-2 rounded">
+                                    <input class="form-check-input ms-1" type="checkbox" id="atualizar_dados" name="atualizar_dados" value="1" checked>
+                                    <label class="form-check-label text-light small fw-bold ms-2" for="atualizar_dados">
+                                        Confirmar e atualizar meu cadastro com estes novos dados.
+                                    </label>
+                                </div>
+                            </div>
+                        `;
+                        
+                        avisoPrincipal = `Verificamos que você possui um <strong>Cadastro Duplicado</strong> na turma <strong>${data.evento_antigo}</strong>. Deseja transferir sua vaga para este horário ({{ evento.titulo }})?`;
+                        
+                    } else {
+                        avisoPrincipal = `Você já possui uma inscrição na turma <strong>${data.evento_antigo}</strong>. Deseja <strong>transferir</strong> sua vaga para este horário ({{ evento.titulo }})? Nenhuma alteração de dados foi detectada.`;
+                    }
+
+                    const botoesDiv = document.getElementById('botoes_acao');
+                    botoesDiv.innerHTML = `
+                        <div class="alert alert-warning border-warning bg-dark text-warning p-4 mb-4 shadow">
+                            <h5 class="fw-bold mb-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Cadastro Duplicado!</h5>
+                            <p class="mb-0 text-light">${avisoPrincipal}</p>
+                            ${divergenciasHtml}
+                        </div>
+                        <input type="hidden" name="confirmar_transferencia" id="confirmar_transferencia_input" value="1">
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-warning btn-lg fw-bold text-dark shadow-sm">Confirmar Transferência</button>
+                            <a href="{% url 'lista_eventos' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    `;
+                    botoesDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                    
+                } else {
+                    form.submit();
+                }
+            })
+            .catch(err => {
+                console.error('Erro de conexão:', err);
+                form.submit(); 
+            });
+        });
+    });
+</script>
+{% endblock %}

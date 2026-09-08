@@ -1,0 +1,259 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="card bg-dark border-success shadow mb-4">
+    <div class="card-header border-bottom border-success d-flex justify-content-between align-items-center py-3">
+        <h5 class="mb-0 text-primary fw-bold">
+            <i class="bi bi-activity text-danger me-2"></i>Fluxo da Recepção (Tempo Real)
+        </h5>
+        <span class="badge bg-dark border border-secondary text-white-50 px-2 py-1 small">
+            <span class="spinner-grow spinner-grow-sm text-success me-1" role="status" style="width: 10px; height: 10px;"></span> 
+            Sincronizando
+        </span>
+    </div>
+    <div class="card-body p-4">
+        <div class="row align-items-center">
+            <div class="col-md-4 text-center border-end border-secondary py-2">
+                <h6 class="text-muted text-uppercase small mb-2">Presentes no Auditório</h6>
+                <h2 class="display-6 text-light fw-bold mb-0">
+                    <span id="livePresentes" class="text-success">0</span><span class="text-white-50 fs-4"> / <span id="liveAprovados">0</span></span>
+                </h2>
+            </div>
+            <div class="col-md-8 ps-md-4 py-2">
+                <h6 class="text-muted text-uppercase small mb-2">Taxa de Ocupação Real</h6>
+                <div class="progress bg-dark-subtle border border-secondary mb-1" style="height: 22px;">
+                    <div id="liveBarra" class="progress-bar bg-success progress-bar-striped progress-bar-animated text-dark fw-bold fs-6" role="progressbar" style="width: 0%;">
+                        0%
+                    </div>
+                </div>
+                <small class="text-muted">A contagem acompanha as leituras de QR Code e cadastros locais de forma automática.</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const elPresentes = document.getElementById('livePresentes');
+    const elAprovados = document.getElementById('liveAprovados');
+    const elBarra = document.getElementById('liveBarra');
+    const eventoId = "{{ evento.id }}";
+
+    function atualizarPainelMonitoramento() {
+        fetch(`/painel/evento/${eventoId}/api/monitoramento/`)
+            .then(response => {
+                if (!response.ok) throw new Error("Erro de comunicação com o servidor.");
+                return response.json();
+            })
+            .then(data => {
+                // Injeta os dados da API nas tags HTML correspondentes
+                elPresentes.textContent = data.total_presentes;
+                elAprovados.textContent = data.total_aprovados;
+                
+                elBarra.style.width = data.porcentagem + '%';
+                elBarra.textContent = data.porcentagem + '%';
+                
+                // UX: Transiciona a cor para azul caso a sala atinja mais de 85% de ocupação
+                if (data.porcentagem >= 85) {
+                    elBarra.classList.remove('bg-success');
+                    elBarra.classList.add('bg-info');
+                } else {
+                    elBarra.classList.remove('bg-info');
+                    elBarra.classList.add('bg-success');
+                }
+            })
+            .catch(error => {
+                console.error("Erro na busca de atualizações da portaria:", error);
+            });
+    }
+
+    // Primeira execução assim que o navegador renderizar a página
+    atualizarPainelMonitoramento();
+
+    // Cria o loop infinito para consultar a API a cada 10 segundos
+    setInterval(atualizarPainelMonitoramento, 10000);
+});
+</script>
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center border-bottom border-success pb-2">
+        <div>
+            <h3 class="mb-0 text-primary">Inscrições: {{ evento.titulo }}</h3>
+            <span class="text-muted small">Vagas Disponíveis: {{ evento.vagas_restantes }} de {{ evento.vagas_totais }}</span>
+        </div>
+        <div>
+            <a href="{% url 'lista_presenca' evento.id %}" target="_blank" class="btn btn-outline-light btn-sm me-2">🖨️ Imprimir Presenças</a>
+            <a href="{% url 'painel_dashboard' %}" class="btn btn-outline-secondary btn-sm">Voltar ao Painel</a>
+        </div>
+    </div>
+</div>
+
+<!-- Banners Dinâmicos de Aviso -->
+{% if bloquear_avaliador %}
+    <div class="alert alert-dark border-warning text-warning d-flex align-items-center shadow-sm" role="alert">
+        <i class="bi bi-lock-fill fs-4 me-3"></i>
+        <div>
+            <strong>Lista Fechada!</strong> O prazo deste evento automático chegou ao fim. As alterações foram bloqueadas e a lista exibe apenas os aprovados.
+        </div>
+    </div>
+{% elif prazo_encerrado %}
+    <div class="alert alert-dark border-info text-info d-flex align-items-center shadow-sm" role="alert">
+        <i class="bi bi-info-circle fs-4 me-3"></i>
+        <div>
+            <strong>Período de Avaliação:</strong> As inscrições para este evento foram encerradas ao público. A equipe já pode finalizar a aprovação das vagas pendentes.
+        </div>
+    </div>
+{% endif %}
+
+<!-- 🚨 BANNER DE VAGAS ESGOTADAS -->
+{% if evento_lotado and not bloquear_avaliador %}
+    <div class="alert alert-dark border-danger text-danger d-flex align-items-center shadow-sm" role="alert">
+        <i class="bi bi-x-octagon-fill fs-4 me-3"></i>
+        <div>
+            <strong>Vagas Esgotadas!</strong> O limite de participantes para este evento foi atingido. A aprovação de novos inscritos está bloqueada.
+        </div>
+    </div>
+{% endif %}
+
+<div class="card border-secondary shadow">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-striped table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th class="ps-4">Nome / Contato</th>
+                        <th>Vínculo / Matrícula</th>
+                        <th>Data da Inscrição</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-end pe-4">Ações</th>
+                        <th class="text-center">Frequência</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inscricao in inscricoes %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-light">{{ inscricao.nome_completo }}</div>
+                            <div class="small text-muted">{{ inscricao.email }}</div>
+                            <div class="small text-muted">CPF: {{ inscricao.cpf }}</div>
+                        </td>
+                        <td>
+                            {% if inscricao.tem_vinculo_universidade %}
+                                <span class="badge bg-info text-dark">Sim</span>
+                                <div class="small text-muted mt-1">{{ inscricao.matricula|default:"-" }}</div>
+                                <div class="small text-muted">{{ inscricao.curso_turma|default:"-" }}</div>
+                            {% else %}
+                                <span class="badge bg-secondary">Comunidade Externa</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ inscricao.data_inscricao|date:"d/m/Y H:i" }}</td>
+                        <td class="text-center">
+                            {% if inscricao.status == 'APROVADA' %}
+                                <span class="badge bg-success">Aprovada</span>
+                            {% elif inscricao.status == 'RECUSADA' %}
+                                <span class="badge bg-danger">Recusada</span>
+                            {% elif inscricao.status == 'LISTA_ESPERA' %}
+                                <span class="badge bg-warning text-dark">Lista de Espera</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Pendente</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <button type="button" class="btn btn-sm btn-outline-info me-1" data-bs-toggle="modal" data-bs-target="#modalDetalhes{{ inscricao.id }}" title="Ver Detalhes">
+                                👁️ Detalhes
+                            </button>
+
+                            {% if not bloquear_avaliador %}
+                                <form method="POST" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="inscricao_id" value="{{ inscricao.id }}">
+                                    
+                                    {% if inscricao.status != 'APROVADA' %}
+                                        <!-- 🚨 TRAVA VISUAL DO BOTÃO DE APROVAR -->
+                                        {% if evento_lotado %}
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Sem vagas disponíveis" disabled>✓</button>
+                                        {% else %}
+                                            <button type="submit" name="novo_status" value="APROVADA" class="btn btn-sm btn-outline-success" title="Aprovar">✓</button>
+                                        {% endif %}
+                                    {% endif %}
+                                    
+                                    {% if inscricao.status != 'LISTA_ESPERA' %}
+                                        <button type="submit" name="novo_status" value="LISTA_ESPERA" class="btn btn-sm btn-outline-warning" title="Mover para Espera">⏱</button>
+                                    {% endif %}
+
+                                    {% if inscricao.status != 'RECUSADA' %}
+                                        <button type="submit" name="novo_status" value="RECUSADA" class="btn btn-sm btn-outline-danger" title="Recusar">✕</button>
+                                    {% endif %}
+                                </form>
+                            {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary disabled" title="Ações bloqueadas">
+                                    <i class="bi bi-lock"></i>
+                                </button>
+                            {% endif %}
+
+                            <div class="modal fade text-start" id="modalDetalhes{{ inscricao.id }}" tabindex="-1" aria-labelledby="modalLabel{{ inscricao.id }}" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                                    <div class="modal-content bg-dark border-success">
+                                        <div class="modal-header border-success">
+                                            <h1 class="modal-title fs-5 text-primary" id="modalLabel{{ inscricao.id }}">Detalhes da Inscrição</h1>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body text-light">
+                                            <h6 class="text-success border-bottom border-secondary pb-1 mb-2">Dados Pessoais</h6>
+                                            <p class="mb-1 small"><strong>Nome:</strong> {{ inscricao.nome_completo }}</p>
+                                            <p class="mb-1 small"><strong>E-mail:</strong> {{ inscricao.email }}</p>
+                                            <p class="mb-3 small"><strong>CPF:</strong> {{ inscricao.cpf }}</p>
+
+                                            <h6 class="text-success border-bottom border-secondary pb-1 mb-2 mt-3">Vínculo Institucional</h6>
+                                            {% if inscricao.tem_vinculo_universidade %}
+                                                <p class="mb-1 small"><strong>Matrícula:</strong> {{ inscricao.matricula|default:"Não informada" }}</p>
+                                                <p class="mb-3 small"><strong>Curso/Turma:</strong> {{ inscricao.curso_turma|default:"Não informado" }}</p>
+                                            {% else %}
+                                                <p class="mb-3 small text-muted">Membro da comunidade externa.</p>
+                                            {% endif %}
+
+                                            {% if inscricao.respostas_detalhadas %}
+                                                <h6 class="text-success border-bottom border-secondary pb-1 mb-2 mt-3">Questionário Adicional</h6>
+                                                <ul class="list-group list-group-flush border border-secondary rounded">
+                                                    {% for item in inscricao.respostas_detalhadas %}
+                                                        <li class="list-group-item bg-dark-subtle text-light border-secondary p-2">
+                                                            <div class="fw-bold small text-white">{{ item.enunciado }}</div>
+                                                            <div class="small text-muted mt-1">{{ item.resposta|default:"<em>Nenhuma resposta fornecida</em>" }}</div>
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% endif %}
+                                        </div>
+                                        <div class="modal-footer border-secondary">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                                                <td class="text-center">
+                            {% if inscricao.compareceu %}
+                                <span class="badge {% if inscricao.aprovado_certificado %}bg-success{% else %}bg-warning text-dark{% endif %} px-2 py-1" title="Sessões: {{ inscricao.total_presencas }} de {{ evento.total_sessoes }}">
+                                    <i class="bi bi-bar-chart-fill me-1"></i> {{ inscricao.percentual_frequencia }}%
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary opacity-50 px-2 py-1">Ausente</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            {% if bloquear_avaliador %}
+                                Nenhuma inscrição foi aprovada para este evento.
+                            {% else %}
+                                Nenhuma inscrição registrada para este evento ainda.
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

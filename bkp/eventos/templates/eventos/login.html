@@ -1,0 +1,39 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5 col-lg-4">
+        <div class="card border-success shadow-lg">
+            <div class="card-header bg-dark border-bottom border-success text-center py-3">
+                <h4 class="mb-0 text-primary fw-bold">Acesso Restrito</h4>
+            </div>
+            
+            <div class="card-body bg-dark-subtle p-4">
+                {% if form.errors %}
+                    <div class="alert alert-danger py-2 text-center" role="alert">
+                        Usuário ou senha incorretos.
+                    </div>
+                {% endif %}
+
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="id_username" class="form-label text-white fw-semibold">Usuário</label>
+                        <input type="text" class="form-control border-secondary" id="id_username" name="username" required autofocus>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="id_password" class="form-label text-white fw-semibold">Senha</label>
+                        <input type="password" class="form-control border-secondary" id="id_password" name="password" required>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">Entrar no Painel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

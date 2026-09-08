@@ -6,7 +6,7 @@ from .models import Evento, Inscricao, GrupoEvento, ControleNoShow
 import io
 from django.http import FileResponse
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, portrait
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
@@ -64,7 +64,7 @@ def exportar_candidatos_avaliacao_pdf(modeladmin, request, queryset):
     
     doc = SimpleDocTemplate(
         buffer, 
-        pagesize=portrait(A4), 
+        pagesize=landscape(A4),
         rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30,
         title="Ficha de Avaliação de Candidatos",
         author="Sistema de Eventos UFOPA"
@@ -90,7 +90,7 @@ def exportar_candidatos_avaliacao_pdf(modeladmin, request, queryset):
         elements.append(Spacer(1, 15))
         
         # Monta o cabeçalho da tabela
-        data = [['Nome do Candidato', 'Vínculo / Matrícula', 'Curso / Setor', 'Status Atual', 'Parecer do Professor']]
+        data = [['Nome do Candidato', 'Vínculo / Matrícula', 'Curso / Setor', 'Status Atual', 'Parecer']]
         
         for insc in inscricoes:
             vinculo = insc.matricula if (insc.tem_vinculo_universidade and insc.matricula) else "Comunidade Externa"

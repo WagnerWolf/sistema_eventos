@@ -1,0 +1,322 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="alert bg-dark border-info text-info shadow-sm d-flex align-items-center mb-4" role="alert">
+    <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+    <div>
+        <strong>Já se inscreveu em algum evento?</strong> 
+        Mantenha a comunidade acadêmica girando! Verifique a aba <a href="{% url 'consultar_inscricao' %}" class="alert-link text-decoration-underline">Minhas Inscrições</a> para acompanhar seu status ou liberar sua vaga caso não possa mais comparecer.
+    </div>
+</div>
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="text-primary fw-bold mb-4">Portal de Eventos</h2>
+
+        <ul class="nav nav-tabs border-success" id="eventosTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active text-light bg-dark border-success border-bottom-0" id="abertos-tab" data-bs-toggle="tab" data-bs-target="#abertos-pane" type="button" role="tab">
+                    Inscrições Abertas
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link text-muted border-0 hover-success" id="encerrados-tab" data-bs-toggle="tab" data-bs-target="#encerrados-pane" type="button" role="tab">
+                    Eventos Encerrados
+                </button>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="tab-content mt-4" id="eventosTabContent">
+    
+    <div class="tab-pane fade show active" id="abertos-pane" role="tabpanel">
+        
+        <div class="d-flex justify-content-start gap-2 mb-4 bg-dark-subtle p-2 rounded border border-secondary">
+            <button type="button" class="btn btn-sm btn-success btn-turno active" data-turno="todos">Todos os Turnos</button>
+            <button type="button" class="btn btn-sm btn-outline-success btn-turno" data-turno="manha">🌅 Manhã</button>
+            <button type="button" class="btn btn-sm btn-outline-success btn-turno" data-turno="tarde">☀️ Tarde</button>
+            <button type="button" class="btn btn-sm btn-outline-success btn-turno" data-turno="noite">🌙 Noite</button>
+        </div>
+
+        <div class="row" id="containerEventosAbertos">
+            {% for evento in eventos_abertos %}
+                <div class="col-md-6 col-lg-4 mb-4 d-flex align-items-stretch card-evento" 
+                     data-turno-item="{% if evento.data_inicio.hour < 12 %}manha{% elif evento.data_inicio.hour < 18 %}tarde{% else %}noite{% endif %}">
+                    <div class="card w-100 shadow-sm border-success bg-dark">
+                        {% if evento.imagem_capa %}
+                            <img src="{{ evento.imagem_capa.url }}" class="card-img-top border-bottom border-success" style="height: 180px; object-fit: cover;">
+                        {% endif %}
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title text-primary fw-bold mb-3">{{ evento.titulo }}</h5>
+                            
+                            <div class="mb-3">
+                                <h6 class="text-white-50 border-bottom border-secondary pb-1 mb-2 small text-uppercase">Informações do Evento</h6>
+                                <p class="mb-2 small">
+                                    <span class="text-success fw-bold">📍 Local:</span><br>
+                                    {{ evento.local|default:"A definir" }}
+                                </p>
+                                <p class="mb-2 small">
+                                    <span class="text-success fw-bold">⏰ Realização:</span><br>
+                                    De {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }}<br>
+                                    Até {{ evento.data_fim|date:"d/m/Y" }} às {{ evento.data_fim|date:"H:i" }}
+                                </p>
+                                <p class="mb-1 small">
+                                    <span class="text-success fw-bold">📅 Período de Inscrição:</span><br>
+                                    {{ evento.inicio_inscricoes|date:"d/m/Y H:i" }} até {{ evento.fim_inscricoes|date:"d/m/Y H:i" }}
+                                </p>
+                                
+                                <div class="badge bg-success text-dark mt-2 w-100 p-2 fs-6">
+                                    🎟️ {{ evento.vagas_restantes }} de {{ evento.vagas_totais }} vagas
+                                </div>
+                            </div>
+                            
+                            <p class="card-text text-light opacity-75 small flex-grow-1 border-top border-secondary pt-2">
+                                {{ evento.descricao|truncatechars:150 }}
+                                {% if evento.descricao|length > 150 %}
+                                    <a href="#" class="text-info fw-bold text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalDescricao{{ evento.id }}">
+                                        Ler Mais
+                                    </a>
+                                {% endif %}
+                            </p>
+                            
+                            {% if evento.inicio_inscricoes and evento.inicio_inscricoes > agora %}
+                                <button class="btn btn-outline-info mt-3 w-100 fw-semibold" disabled>
+                                    Em breve (Abre {{ evento.inicio_inscricoes|date:"d/m" }})
+                                </button>
+                            {% elif evento.vagas_restantes > 0 %}
+                                <a href="{% url 'inscricao_evento' evento.id %}" class="btn btn-primary mt-3 w-100 fw-semibold">Realizar Inscrição</a>
+                            {% else %}
+                                <a href="{% url 'inscricao_evento' evento.id %}" class="btn btn-outline-warning mt-3 w-100 fw-semibold">Entrar na Lista de Espera</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                {% if evento.descricao|length > 150 %}
+                <div class="modal fade" id="modalDescricao{{ evento.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content bg-dark border-success">
+                            <div class="modal-header border-success">
+                                <h1 class="modal-title fs-5 text-primary fw-bold">{{ evento.titulo }}</h1>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body text-light" style="white-space: pre-line;">
+                                {{ evento.descricao }}
+                            </div>
+                            <div class="modal-footer border-secondary">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+            {% empty %}
+                <div class="col-12 text-center py-5 border border-success rounded bg-dark">
+                    <p class="text-muted mb-0"><i class="bi bi-calendar-x fs-2 d-block mb-2 text-success"></i> Nenhum evento com inscrições abertas no momento.</p>
+                </div>
+            {% endfor %}
+
+            <div id="msgTurnoVazio" class="col-12 text-center py-5 border border-secondary rounded bg-dark d-none">
+                <p class="text-muted mb-0"><i class="bi bi-clock fs-2 d-block mb-2 text-success"></i> Nenhum evento disponível para este turno nesta página.</p>
+            </div>
+        </div>
+
+        {% if eventos_abertos.paginator.num_pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center" data-tab-id="abertos-pane">
+                {% if eventos_abertos.has_previous %}
+                    <li class="page-item"><a class="page-link bg-dark text-success border-success" href="?page_abertos={{ eventos_abertos.previous_page_number }}">Anterior</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link bg-success text-dark border-success">Página {{ eventos_abertos.number }} de {{ eventos_abertos.paginator.num_pages }}</span></li>
+                {% if eventos_abertos.has_next %}
+                    <li class="page-item"><a class="page-link bg-dark text-success border-success" href="?page_abertos={{ eventos_abertos.next_page_number }}">Próxima</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+
+    <div class="tab-pane fade" id="encerrados-pane" role="tabpanel">
+        <div class="row">
+            {% for evento in eventos_encerrados %}
+                <div class="col-md-6 col-lg-4 mb-4 d-flex align-items-stretch">
+                    <div class="card w-100 shadow-sm border-secondary bg-dark opacity-75">
+                        {% if evento.imagem_capa %}
+                            <img src="{{ evento.imagem_capa.url }}" class="card-img-top border-bottom border-secondary grayscale" style="height: 150px; object-fit: cover;">
+                        {% endif %}
+                        <div class="card-body d-flex flex-column">
+                            <h6 class="card-title text-light fw-bold">{{ evento.titulo }}</h6>
+                            
+                            <div class="alert alert-secondary py-2 px-3 small mt-2 border-0 bg-dark-subtle text-light">
+                                <strong><i class="bi bi-lock-fill text-warning me-1"></i> Inscrições encerradas em:</strong><br>
+                                {{ evento.fim_inscricoes|date:"d/m/Y H:i" }}
+                            </div>
+                            
+                            <div class="small text-muted mb-3 border-top border-secondary pt-2">
+                                <p class="mb-1">
+                                    <strong class="text-light">Realização:</strong><br>
+                                    De {{ evento.data_inicio|date:"d/m/Y H:i" }}<br>
+                                    Até {{ evento.data_fim|date:"d/m/Y H:i" }}
+                                </p>
+                                <p class="mb-0"><strong class="text-light">Local:</strong> {{ evento.local|default:"A definir" }}</p>
+                            </div>
+
+                             <p class="card-text text-light opacity-50 small flex-grow-1 border-top border-secondary pt-2">
+                                {{ evento.descricao|truncatechars:100 }}
+                                {% if evento.descricao|length > 100 %}
+                                    <a href="#" class="text-secondary fw-bold text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalDescricaoEncerrado{{ evento.id }}">Ler Mais</a>
+                                {% endif %}
+                            </p>
+
+                            <button class="btn btn-outline-secondary btn-sm mt-auto w-100" disabled>Encerrado</button>
+                        </div>
+                    </div>
+                </div>
+
+                {% if evento.descricao|length > 100 %}
+                <div class="modal fade" id="modalDescricaoEncerrado{{ evento.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content bg-dark border-secondary">
+                            <div class="modal-header border-secondary">
+                                <h1 class="modal-title fs-5 text-light fw-bold">{{ evento.titulo }}</h1>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body text-light opacity-75" style="white-space: pre-line;">
+                                {{ evento.descricao }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% empty %}
+                 <div class="col-12 text-center py-5 border border-secondary rounded bg-dark">
+                    <p class="text-muted mb-0">Nenhum evento encerrado registrado no sistema.</p>
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if eventos_encerrados.paginator.num_pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center" data-tab-id="encerrados-pane">
+                {% if eventos_encerrados.has_previous %}
+                    <li class="page-item"><a class="page-link bg-dark text-secondary border-secondary" href="?page_encerrados={{ eventos_encerrados.previous_page_number }}">Anterior</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link bg-secondary text-dark border-secondary">Página {{ eventos_encerrados.number }} de {{ eventos_encerrados.paginator.num_pages }}</span></li>
+                {% if eventos_encerrados.has_next %}
+                    <li class="page-item"><a class="page-link bg-dark text-secondary border-secondary" href="?page_encerrados={{ eventos_encerrados.next_page_number }}">Próxima</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+
+</div>
+
+<style>
+    .grayscale { filter: grayscale(100%); }
+    .page-link:hover { background-color: #198754 !important; color: white !important; }
+    .hover-success:hover { color: #198754 !important; }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    
+    // --- FILTRAGEM POR TURNO (DENTRO DA ABA DE ABERTOS) ---
+    const botoesTurno = document.querySelectorAll('.btn-turno');
+    const cardsEvento = document.querySelectorAll('.card-evento');
+    const msgTurnoVazio = document.getElementById('msgTurnoVazio');
+
+    botoesTurno.forEach(botao => {
+        botao.addEventListener('click', function() {
+            // Ajusta classes visuais dos botões
+            botoesTurno.forEach(b => {
+                b.classList.remove('btn-success', 'active');
+                b.classList.add('btn-outline-success');
+            });
+            this.classList.remove('btn-outline-success');
+            this.classList.add('btn-success', 'active');
+
+            const turnoSelecionado = this.getAttribute('data-turno');
+            let visiveis = 0;
+
+            // Filtra os cards
+            cardsEvento.forEach(card => {
+                const turnoItem = card.getAttribute('data-turno-item');
+                if (turnoSelecionado === 'todos' || turnoItem === turnoSelecionado) {
+                    card.classList.remove('d-none');
+                    card.classList.add('d-flex');
+                    visiveis++;
+                } else {
+                    card.classList.remove('d-flex');
+                    card.classList.add('d-none');
+                }
+            });
+
+            // Gerencia mensagem de lista vazia na página atual
+            if (msgTurnoVazio) {
+                if (visiveis === 0) {
+                    msgTurnoVazio.classList.remove('d-none');
+                } else {
+                    msgTurnoVazio.classList.add('d-none');
+                }
+            }
+        });
+    });
+    // ------------------------------------------------------
+
+    // Paginação AJAX fluida (impede o piscar da tela inteira)
+    document.body.addEventListener('click', function(e) {
+        if (e.target.tagName.toLowerCase() === 'a' && e.target.classList.contains('page-link')) {
+            e.preventDefault();
+            const url = e.target.getAttribute('href');
+            
+            const paginationUl = e.target.closest('ul.pagination');
+            if (!paginationUl) return;
+            const abaId = paginationUl.getAttribute('data-tab-id');
+            const abaAtiva = document.getElementById(abaId);
+            
+            abaAtiva.style.opacity = '0.5';
+
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    
+                    const novoConteudo = doc.getElementById(abaId).innerHTML;
+                    abaAtiva.innerHTML = novoConteudo;
+                    abaAtiva.style.opacity = '1';
+                    
+                    window.history.pushState({}, '', url);
+
+                    // RE-INICIALIZA O FILTRO DE TURNO APÓS PAGINAÇÃO AJAX
+                    document.dispatchEvent(new Event('DOMContentLoaded'));
+                })
+                .catch(err => {
+                    console.error('Erro de paginação:', err);
+                    abaAtiva.style.opacity = '1';
+                });
+        }
+    });
+
+    // Lógica das Abas visuais principais
+    const triggerTabList = document.querySelectorAll('#eventosTab button')
+    triggerTabList.forEach(triggerEl => {
+        const tabTrigger = new bootstrap.Tab(triggerEl)
+        triggerEl.addEventListener('click', event => {
+            event.preventDefault()
+            
+            document.querySelectorAll('#eventosTab button').forEach(b => {
+                b.classList.remove('bg-dark', 'text-light', 'border-success', 'border-bottom-0');
+                b.classList.add('text-muted', 'border-0');
+            });
+            triggerEl.classList.remove('text-muted', 'border-0');
+            triggerEl.classList.add('bg-dark', 'text-light', 'border-success', 'border-bottom-0');
+            
+            tabTrigger.show()
+        })
+    })
+});
+</script>
+{% endblock %}

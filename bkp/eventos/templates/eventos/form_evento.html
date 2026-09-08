@@ -1,0 +1,351 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card border-success shadow bg-dark">
+            <div class="card-header border-bottom border-success py-3">
+                <h3 class="mb-0 text-primary fw-bold">{{ titulo_pagina }}</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-7">
+                            <div class="mb-3">
+                                <label class="form-label text-white">Título do Evento</label>
+                                {{ form.titulo }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-white">Local</label>
+                                {{ form.local }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-white d-flex justify-content-between align-items-center">
+                                    <span>Grupo de Conflito (Opcional)</span>
+                                    <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-bs-toggle="modal" data-bs-target="#modalNovoGrupo">
+                                        <i class="bi bi-plus-lg"></i> Novo
+                                    </button>
+                                </label>
+                                {{ form.grupo }}
+                                <div class="form-text text-white-50 small mt-1">
+                                    Eventos do mesmo grupo não permitem inscrições simultâneas (ex: Turma A e Turma B).
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-white">Descrição Detalhada</label>
+                                {{ form.descricao }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-white">Capa do Evento (Opcional)</label>
+                                {{ form.imagem_capa }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-5 bg-dark-subtle rounded p-3 border border-secondary">
+                            
+                            <div class="row mb-4">
+                                <div class="col-6">
+                                    <label class="form-label text-white">Total de Vagas</label>
+                                    {{ form.vagas_totais }}
+                                </div>
+                                <div class="col-6 d-flex flex-column justify-content-end pb-1">
+                                    <div class="form-check form-switch mb-2">
+                                        {{ form.aberto_comunidade }}
+                                        <label class="form-check-label text-white small" style="line-height: 1.2;">Comunidade externa?</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        {{ form.aprovacao_automatica }}
+                                        <label class="form-check-label text-white small" style="line-height: 1.2;">Aprovação Automática?</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="text-info border-bottom border-secondary pb-1 mb-3 small text-uppercase">
+                                <i class="bi bi-ui-checks me-1"></i> Controle de Frequência
+                            </h6>
+                            <div class="row mb-4">
+                                <div class="col-6">
+                                    <label class="form-label text-white-50 small mb-1" title="Palestras = 1. Minicursos = 3, 5...">Sessões / Dias</label>
+                                    {{ form.total_sessoes }}
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label text-white-50 small mb-1" title="Padrão: 75%">Frequência Mínima (%)</label>
+                                    {{ form.frequencia_minima }}
+                                </div>
+                            </div>
+                            <h6 class="text-success border-bottom border-secondary pb-1 mb-3 small text-uppercase">Período de Inscrição</h6>
+                            <div class="mb-3">
+                                <label class="form-label text-white-50 small">Início das Inscrições</label>
+                                {{ form.inicio_inscricoes }}
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label text-white-50 small">Fim das Inscrições</label>
+                                {{ form.fim_inscricoes }}
+                            </div>
+
+                            <h6 class="text-success border-bottom border-secondary pb-1 mb-3 small text-uppercase">Realização do Evento</h6>
+                            <div class="mb-3">
+                                <label class="form-label text-white-50 small">Data/Hora de Início</label>
+                                {{ form.data_inicio }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-white-50 small">Data/Hora de Término</label>
+                                {{ form.data_fim }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 mt-4">
+                        <div class="card bg-dark border-secondary">
+                            <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 text-success text-uppercase small">Perguntas Personalizadas (Opcional)</h6>
+                                <div class="form-check form-switch m-0">
+                                    {{ form.tem_questionario }}
+                                    <label class="form-check-label text-white small" for="switchQuestionario">Habilitar Questionário</label>
+                                </div>
+                            </div>
+                            
+                            <div class="card-body bg-dark-subtle" id="painelQuestionario" style="display: none;">
+                                {{ form.questionario }} 
+                                <div class="row align-items-end mb-3 border-bottom border-secondary pb-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label text-white small fw-bold">Enunciado da Pergunta</label>
+                                        <input type="text" id="q_enunciado" maxlength="255" class="form-control form-control-sm border-secondary" placeholder="Ex: Qual sua restrição alimentar?">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label text-white small fw-bold">Tipo de Resposta</label>
+                                        <select id="q_tipo" class="form-select form-select-sm border-secondary">
+                                            <option value="texto">Texto Livre</option>
+                                            <option value="escolha">Múltipla Escolha</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3" id="div_opcoes" style="display: none;">
+                                        <label class="form-label text-white small fw-bold">Opções (separadas por vírgula)</label>
+                                        <input type="text" id="q_opcoes" maxlength="255" class="form-control form-control-sm border-secondary" placeholder="Ex: Vegano, Sem Lactose, Nenhuma">
+                                    </div>
+                                    <div class="col-md-2 d-flex flex-column justify-content-end">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input border-secondary" type="checkbox" id="q_obrigatoria">
+                                            <label class="form-check-label text-white small fw-bold">Obrigatória?</label>
+                                        </div>
+                                        <button type="button" id="btnAdicionarPergunta" class="btn btn-sm btn-success w-100">Adicionar</button>
+                                    </div>
+                                </div>
+
+                                <ul class="list-group" id="listaPerguntas"></ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-top border-secondary d-flex justify-content-end gap-2">
+                        <a href="{% url 'painel_dashboard' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary px-4">Salvar Evento</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="modalNovoGrupo" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark border-success">
+      <div class="modal-header border-success">
+        <h5 class="modal-title text-success">Criar Novo Grupo</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formNovoGrupo">
+            <div class="mb-3">
+                <label class="form-label text-white">Nome do Grupo *</label>
+                <input type="text" class="form-control bg-dark text-white border-secondary" id="novoGrupoNome" maxlength="200" placeholder="Ex: Oficina de Python" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label text-white">Descrição (Opcional)</label>
+                <textarea class="form-control bg-dark text-white border-secondary" id="novoGrupoDescricao" rows="2" maxlength="500"></textarea>
+            </div>
+        </form>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" id="btnSalvarGrupo">Salvar Grupo</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    
+    // --- 🚨 PROTEÇÃO JAVASCRIPT CONTRA TEXTOS COLADOS (CTRL+V) ---
+    const inputsLimitados = document.querySelectorAll('input[maxlength], textarea[maxlength]');
+    inputsLimitados.forEach(input => {
+        input.addEventListener('input', function() {
+            const limite = parseInt(this.getAttribute('maxlength'));
+            if (this.value.length > limite) {
+                this.value = this.value.slice(0, limite);
+            }
+        });
+    });
+    // -------------------------------------------------------------
+
+    const switchQuestionario = document.getElementById('switchQuestionario') || document.querySelector('input[name="tem_questionario"]');
+    const painelQuestionario = document.getElementById('painelQuestionario');
+    const inputJson = document.getElementById('jsonQuestionario') || document.querySelector('input[name="questionario"]');
+    
+    const qTipo = document.getElementById('q_tipo');
+    const divOpcoes = document.getElementById('div_opcoes');
+    const btnAdd = document.getElementById('btnAdicionarPergunta');
+    const listaPerguntas = document.getElementById('listaPerguntas');
+    
+    let questionario = [];
+
+    if(inputJson && inputJson.value) {
+        try {
+            questionario = JSON.parse(inputJson.value);
+            atualizarLista();
+        } catch(e) {}
+    }
+
+    if(switchQuestionario) {
+        switchQuestionario.addEventListener('change', function() {
+            painelQuestionario.style.display = this.checked ? 'block' : 'none';
+        });
+        if(switchQuestionario.checked) {
+            painelQuestionario.style.display = 'block';
+        }
+    }
+
+    qTipo.addEventListener('change', function() {
+        divOpcoes.style.display = this.value === 'escolha' ? 'block' : 'none';
+    });
+
+    function atualizarLista() {
+        listaPerguntas.innerHTML = '';
+        questionario.forEach((q, index) => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item bg-dark text-light border-secondary d-flex justify-content-between align-items-center';
+            
+            let badgeTipo = q.tipo === 'texto' ? '<span class="badge bg-secondary">Texto Livre</span>' : '<span class="badge bg-info text-white">Múltipla Escolha</span>';
+            let badgeObrigatoria = q.obrigatoria ? '<span class="badge bg-danger ms-1">Obrigatória</span>' : '<span class="badge bg-success ms-1">Opcional</span>';
+            let opcoesTexto = q.tipo === 'escolha' ? `<div class="small text-muted mt-1">Opções: ${q.opcoes.join(' | ')}</div>` : '';
+
+            li.innerHTML = `
+                <div>
+                    <strong>${q.enunciado}</strong> ${badgeTipo} ${badgeObrigatoria}
+                    ${opcoesTexto}
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerPergunta(${index})">X</button>
+            `;
+            listaPerguntas.appendChild(li);
+        });
+
+        if(inputJson) {
+            inputJson.value = JSON.stringify(questionario);
+        }
+    }
+
+    window.removerPergunta = function(index) {
+        questionario.splice(index, 1);
+        atualizarLista();
+    };
+
+    btnAdd.addEventListener('click', function() {
+        const enunciado = document.getElementById('q_enunciado').value.trim();
+        const tipo = qTipo.value;
+        const obrigatoria = document.getElementById('q_obrigatoria').checked;
+        let opcoes = [];
+
+        if (!enunciado) {
+            alert('Por favor, digite o enunciado da pergunta.');
+            return;
+        }
+
+        if (tipo === 'escolha') {
+            const opcoesRaw = document.getElementById('q_opcoes').value;
+            opcoes = opcoesRaw.split(',').map(o => o.trim()).filter(o => o !== '');
+            if (opcoes.length < 2) {
+                alert('Para múltipla escolha, forneça pelo menos duas opções separadas por vírgula.');
+                return;
+            }
+        }
+
+        questionario.push({
+            id: 'pergunta_' + Date.now(),
+            enunciado: enunciado,
+            tipo: tipo,
+            obrigatoria: obrigatoria,
+            opcoes: opcoes
+        });
+
+        document.getElementById('q_enunciado').value = '';
+        document.getElementById('q_opcoes').value = '';
+        document.getElementById('q_obrigatoria').checked = false;
+        
+        atualizarLista();
+    });
+});
+
+// --- Lógica AJAX para Criar Novo Grupo ---
+    const btnSalvarGrupo = document.getElementById('btnSalvarGrupo');
+    if (btnSalvarGrupo) {
+        btnSalvarGrupo.addEventListener('click', function() {
+            const nomeInput = document.getElementById('novoGrupoNome');
+            const descInput = document.getElementById('novoGrupoDescricao');
+            const nome = nomeInput.value.trim();
+            const desc = descInput.value.trim();
+            
+            if (!nome) {
+                alert('O nome do grupo é obrigatório.');
+                nomeInput.focus();
+                return;
+            }
+            
+            // Efeito de carregamento no botão
+            const btnOriginalText = btnSalvarGrupo.innerText;
+            btnSalvarGrupo.innerText = 'Salvando...';
+            btnSalvarGrupo.disabled = true;
+
+            const formData = new FormData();
+            formData.append('nome', nome);
+            formData.append('descricao', desc);
+            // Pega o token CSRF da página principal
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+            fetch("{% url 'api_criar_grupo' %}", {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'sucesso') {
+                    // Adiciona a nova opção no <select> do Django e a seleciona imediatamente
+                    const selectGrupo = document.getElementById('id_grupo');
+                    const newOption = new Option(data.nome, data.id, true, true);
+                    selectGrupo.add(newOption);
+                    
+                    // Esconde o modal suavemente
+                    const modalEl = document.getElementById('modalNovoGrupo');
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    modalInstance.hide();
+                    
+                    // Limpa os campos para uso futuro
+                    nomeInput.value = '';
+                    descInput.value = '';
+                } else {
+                    alert('Erro: ' + data.mensagem);
+                }
+            })
+            .catch(err => {
+                console.error('Erro de conexão:', err);
+                alert('Ocorreu um erro na rede ao tentar salvar o grupo.');
+            })
+            .finally(() => {
+                btnSalvarGrupo.innerText = btnOriginalText;
+                btnSalvarGrupo.disabled = false;
+            });
+        });
+    }
+</script>
+{% endblock %}
