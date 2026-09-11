@@ -29,6 +29,9 @@
 
 <div class="tab-content mt-4" id="eventosTabContent">
     
+    <!-- ========================================== -->
+    <!-- ABA: INSCRIÇÕES ABERTAS                    -->
+    <!-- ========================================== -->
     <div class="tab-pane fade show active" id="abertos-pane" role="tabpanel">
         
         <div class="d-flex justify-content-start gap-2 mb-4 bg-dark-subtle p-2 rounded border border-secondary">
@@ -42,27 +45,32 @@
             {% for evento in eventos_abertos %}
                 <div class="col-md-6 col-lg-4 mb-4 d-flex align-items-stretch card-evento" 
                      data-turno-item="{% if evento.data_inicio.hour < 12 %}manha{% elif evento.data_inicio.hour < 18 %}tarde{% else %}noite{% endif %}">
+                    
                     <div class="card w-100 shadow-sm border-success bg-dark">
+                        <!-- Imagem Clicável (Miniatura mantém o cover para alinhar os cards) -->
                         {% if evento.imagem_capa %}
-                            <img src="{{ evento.imagem_capa.url }}" class="card-img-top border-bottom border-success" style="height: 180px; object-fit: cover;">
+                            <a href="#" data-bs-toggle="modal" data-bs-target="#modalDetalhesEvento{{ evento.id }}">
+                                <img src="{{ evento.imagem_capa.url }}" class="card-img-top border-bottom border-success" style="height: 180px; object-fit: cover;">
+                            </a>
                         {% endif %}
+                        
                         <div class="card-body d-flex flex-column">
-                            <h5 class="card-title text-primary fw-bold mb-3">{{ evento.titulo }}</h5>
+                            <!-- Título Clicável -->
+                            <a href="#" data-bs-toggle="modal" data-bs-target="#modalDetalhesEvento{{ evento.id }}" class="text-decoration-none">
+                                <h5 class="card-title text-primary fw-bold mb-3 hover-success">
+                                    {{ evento.titulo }} <i class="bi bi-arrows-angle-expand text-muted ms-1 fs-6"></i>
+                                </h5>
+                            </a>
                             
                             <div class="mb-3">
-                                <h6 class="text-white-50 border-bottom border-secondary pb-1 mb-2 small text-uppercase">Informações do Evento</h6>
+                                <h6 class="text-white-50 border-bottom border-secondary pb-1 mb-2 small text-uppercase">Resumo</h6>
                                 <p class="mb-2 small">
                                     <span class="text-success fw-bold">📍 Local:</span><br>
                                     {{ evento.local|default:"A definir" }}
                                 </p>
                                 <p class="mb-2 small">
-                                    <span class="text-success fw-bold">⏰ Realização:</span><br>
-                                    De {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }}<br>
-                                    Até {{ evento.data_fim|date:"d/m/Y" }} às {{ evento.data_fim|date:"H:i" }}
-                                </p>
-                                <p class="mb-1 small">
-                                    <span class="text-success fw-bold">📅 Período de Inscrição:</span><br>
-                                    {{ evento.inicio_inscricoes|date:"d/m/Y H:i" }} até {{ evento.fim_inscricoes|date:"d/m/Y H:i" }}
+                                    <span class="text-success fw-bold">⏰ Início:</span><br>
+                                    {{ evento.data_inicio|date:"d/m/Y" }} às {{ evento.data_inicio|date:"H:i" }}
                                 </p>
                                 
                                 <div class="badge bg-success text-dark mt-2 w-100 p-2 fs-6">
@@ -71,12 +79,11 @@
                             </div>
                             
                             <p class="card-text text-light opacity-75 small flex-grow-1 border-top border-secondary pt-2">
-                                {{ evento.descricao|truncatechars:150 }}
-                                {% if evento.descricao|length > 150 %}
-                                    <a href="#" class="text-info fw-bold text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalDescricao{{ evento.id }}">
-                                        Ler Mais
-                                    </a>
-                                {% endif %}
+                                {{ evento.descricao|truncatechars:100 }}
+                                <br>
+                                <a href="#" class="text-info fw-bold text-decoration-none mt-1 d-inline-block" data-bs-toggle="modal" data-bs-target="#modalDetalhesEvento{{ evento.id }}">
+                                    Ver Detalhes Completos
+                                </a>
                             </p>
                             
                             {% if evento.inicio_inscricoes and evento.inicio_inscricoes > agora %}
@@ -92,24 +99,53 @@
                     </div>
                 </div>
 
-                {% if evento.descricao|length > 150 %}
-                <div class="modal fade" id="modalDescricao{{ evento.id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-                        <div class="modal-content bg-dark border-success">
-                            <div class="modal-header border-success">
-                                <h1 class="modal-title fs-5 text-primary fw-bold">{{ evento.titulo }}</h1>
+                <!-- MODAL DE DETALHES COMPLETOS (Abertos) -->
+                <div class="modal fade" id="modalDetalhesEvento{{ evento.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+                        <div class="modal-content bg-dark border-success shadow-lg">
+                            <div class="modal-header border-secondary">
+                                <h5 class="modal-title text-primary fw-bold">{{ evento.titulo }}</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
-                            <div class="modal-body text-light" style="white-space: pre-line;">
-                                {{ evento.descricao }}
+                            
+                            <div class="modal-body p-0">
+                                {% if evento.imagem_capa %}
+                                    <!-- AQUI ESTÁ A CORREÇÃO (contain e background) -->
+                                    <img src="{{ evento.imagem_capa.url }}" class="img-fluid w-100 border-bottom border-success" alt="Capa do evento" style="max-height: 400px; object-fit: contain; background-color: #0b0c0d;">
+                                {% endif %}
+                                
+                                <div class="p-4 text-light">
+                                    <div class="row mb-3 bg-dark-subtle p-3 rounded border border-secondary">
+                                        <div class="col-12 col-md-6 mb-3 mb-md-0">
+                                            <div class="text-success small text-uppercase fw-bold"><i class="bi bi-clock me-1"></i> Período do Evento</div>
+                                            <div>De {{ evento.data_inicio|date:"d/m/Y H:i" }}</div>
+                                            <div>Até {{ evento.data_fim|date:"d/m/Y H:i" }}</div>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <div class="text-success small text-uppercase fw-bold"><i class="bi bi-geo-alt-fill me-1"></i> Local</div>
+                                            <div>{{ evento.local|default:"A definir" }}</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="text-white-50 small text-uppercase fw-bold mb-2">Sobre o Evento</div>
+                                    <div style="white-space: pre-line;">{{ evento.descricao }}</div>
+                                </div>
                             </div>
-                            <div class="modal-footer border-secondary">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            
+                            <div class="modal-footer border-secondary justify-content-between">
+                                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Fechar</button>
+                                
+                                {% if evento.inicio_inscricoes and evento.inicio_inscricoes > agora %}
+                                    <button class="btn btn-info fw-semibold" disabled>Abre {{ evento.inicio_inscricoes|date:"d/m/Y" }}</button>
+                                {% elif evento.vagas_restantes > 0 %}
+                                    <a href="{% url 'inscricao_evento' evento.id %}" class="btn btn-primary fw-bold px-4">Quero me Inscrever</a>
+                                {% else %}
+                                    <a href="{% url 'inscricao_evento' evento.id %}" class="btn btn-warning fw-bold text-dark px-4">Lista de Espera</a>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
                 </div>
-                {% endif %}
 
             {% empty %}
                 <div class="col-12 text-center py-5 border border-success rounded bg-dark">
@@ -137,16 +173,25 @@
         {% endif %}
     </div>
 
+    <!-- ========================================== -->
+    <!-- ABA: EVENTOS ENCERRADOS                    -->
+    <!-- ========================================== -->
     <div class="tab-pane fade" id="encerrados-pane" role="tabpanel">
         <div class="row">
             {% for evento in eventos_encerrados %}
                 <div class="col-md-6 col-lg-4 mb-4 d-flex align-items-stretch">
                     <div class="card w-100 shadow-sm border-secondary bg-dark opacity-75">
+                        
                         {% if evento.imagem_capa %}
-                            <img src="{{ evento.imagem_capa.url }}" class="card-img-top border-bottom border-secondary grayscale" style="height: 150px; object-fit: cover;">
+                            <a href="#" data-bs-toggle="modal" data-bs-target="#modalDetalhesEncerrado{{ evento.id }}">
+                                <img src="{{ evento.imagem_capa.url }}" class="card-img-top border-bottom border-secondary grayscale" style="height: 150px; object-fit: cover;">
+                            </a>
                         {% endif %}
+                        
                         <div class="card-body d-flex flex-column">
-                            <h6 class="card-title text-light fw-bold">{{ evento.titulo }}</h6>
+                            <a href="#" data-bs-toggle="modal" data-bs-target="#modalDetalhesEncerrado{{ evento.id }}" class="text-decoration-none">
+                                <h6 class="card-title text-light fw-bold hover-success">{{ evento.titulo }}</h6>
+                            </a>
                             
                             <div class="alert alert-secondary py-2 px-3 small mt-2 border-0 bg-dark-subtle text-light">
                                 <strong><i class="bi bi-lock-fill text-warning me-1"></i> Inscrições encerradas em:</strong><br>
@@ -156,17 +201,14 @@
                             <div class="small text-muted mb-3 border-top border-secondary pt-2">
                                 <p class="mb-1">
                                     <strong class="text-light">Realização:</strong><br>
-                                    De {{ evento.data_inicio|date:"d/m/Y H:i" }}<br>
-                                    Até {{ evento.data_fim|date:"d/m/Y H:i" }}
+                                    De {{ evento.data_inicio|date:"d/m/Y" }} a {{ evento.data_fim|date:"d/m/Y" }}
                                 </p>
                                 <p class="mb-0"><strong class="text-light">Local:</strong> {{ evento.local|default:"A definir" }}</p>
                             </div>
 
                              <p class="card-text text-light opacity-50 small flex-grow-1 border-top border-secondary pt-2">
-                                {{ evento.descricao|truncatechars:100 }}
-                                {% if evento.descricao|length > 100 %}
-                                    <a href="#" class="text-secondary fw-bold text-decoration-none" data-bs-toggle="modal" data-bs-target="#modalDescricaoEncerrado{{ evento.id }}">Ler Mais</a>
-                                {% endif %}
+                                {{ evento.descricao|truncatechars:100 }}<br>
+                                <a href="#" class="text-secondary fw-bold text-decoration-none mt-1 d-inline-block" data-bs-toggle="modal" data-bs-target="#modalDetalhesEncerrado{{ evento.id }}">Ver Detalhes</a>
                             </p>
 
                             <button class="btn btn-outline-secondary btn-sm mt-auto w-100" disabled>Encerrado</button>
@@ -174,21 +216,46 @@
                     </div>
                 </div>
 
-                {% if evento.descricao|length > 100 %}
-                <div class="modal fade" id="modalDescricaoEncerrado{{ evento.id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-                        <div class="modal-content bg-dark border-secondary">
+                <!-- MODAL DE DETALHES COMPLETOS (Encerrados) -->
+                <div class="modal fade" id="modalDetalhesEncerrado{{ evento.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+                        <div class="modal-content bg-dark border-secondary shadow-lg">
                             <div class="modal-header border-secondary">
-                                <h1 class="modal-title fs-5 text-light fw-bold">{{ evento.titulo }}</h1>
+                                <h5 class="modal-title text-light fw-bold">{{ evento.titulo }}</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
-                            <div class="modal-body text-light opacity-75" style="white-space: pre-line;">
-                                {{ evento.descricao }}
+                            
+                            <div class="modal-body p-0">
+                                {% if evento.imagem_capa %}
+                                    <!-- AQUI TAMBÉM ESTÁ A CORREÇÃO (contain e background escuro) -->
+                                    <img src="{{ evento.imagem_capa.url }}" class="img-fluid w-100 border-bottom border-secondary grayscale" alt="Capa do evento" style="max-height: 400px; object-fit: contain; background-color: #0b0c0d;">
+                                {% endif %}
+                                
+                                <div class="p-4 text-light opacity-75">
+                                    <div class="row mb-3 bg-dark-subtle p-3 rounded border border-secondary">
+                                        <div class="col-12 col-md-6 mb-3 mb-md-0">
+                                            <div class="text-muted small text-uppercase fw-bold"><i class="bi bi-clock me-1"></i> Período do Evento</div>
+                                            <div>De {{ evento.data_inicio|date:"d/m/Y H:i" }}</div>
+                                            <div>Até {{ evento.data_fim|date:"d/m/Y H:i" }}</div>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <div class="text-muted small text-uppercase fw-bold"><i class="bi bi-geo-alt-fill me-1"></i> Local</div>
+                                            <div>{{ evento.local|default:"A definir" }}</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="text-white-50 small text-uppercase fw-bold mb-2">Sobre o Evento</div>
+                                    <div style="white-space: pre-line;">{{ evento.descricao }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="modal-footer border-secondary">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar Visualização</button>
                             </div>
                         </div>
                     </div>
                 </div>
-                {% endif %}
+
             {% empty %}
                  <div class="col-12 text-center py-5 border border-secondary rounded bg-dark">
                     <p class="text-muted mb-0">Nenhum evento encerrado registrado no sistema.</p>
@@ -216,6 +283,7 @@
 <style>
     .grayscale { filter: grayscale(100%); }
     .page-link:hover { background-color: #198754 !important; color: white !important; }
+    .hover-success { transition: color 0.2s; }
     .hover-success:hover { color: #198754 !important; }
 </style>
 
@@ -229,7 +297,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
     botoesTurno.forEach(botao => {
         botao.addEventListener('click', function() {
-            // Ajusta classes visuais dos botões
             botoesTurno.forEach(b => {
                 b.classList.remove('btn-success', 'active');
                 b.classList.add('btn-outline-success');
@@ -240,7 +307,6 @@ document.addEventListener("DOMContentLoaded", function() {
             const turnoSelecionado = this.getAttribute('data-turno');
             let visiveis = 0;
 
-            // Filtra os cards
             cardsEvento.forEach(card => {
                 const turnoItem = card.getAttribute('data-turno-item');
                 if (turnoSelecionado === 'todos' || turnoItem === turnoSelecionado) {
@@ -253,7 +319,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             });
 
-            // Gerencia mensagem de lista vazia na página atual
             if (msgTurnoVazio) {
                 if (visiveis === 0) {
                     msgTurnoVazio.classList.remove('d-none');
@@ -263,7 +328,6 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
     });
-    // ------------------------------------------------------
 
     // Paginação AJAX fluida (impede o piscar da tela inteira)
     document.body.addEventListener('click', function(e) {
@@ -289,8 +353,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     abaAtiva.style.opacity = '1';
                     
                     window.history.pushState({}, '', url);
-
-                    // RE-INICIALIZA O FILTRO DE TURNO APÓS PAGINAÇÃO AJAX
                     document.dispatchEvent(new Event('DOMContentLoaded'));
                 })
                 .catch(err => {

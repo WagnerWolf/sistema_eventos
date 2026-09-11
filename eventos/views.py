@@ -18,6 +18,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.decorators import permission_required
 from django.core.signing import TimestampSigner, SignatureExpired, BadSignature
 from datetime import timedelta
+from django.utils.http import urlencode
 from urllib.parse import urlencode
 import logging
 from django.http import JsonResponse
@@ -162,6 +163,9 @@ def inscricao_evento(request, evento_id):
         except (SignatureExpired, BadSignature):
             messages.error(request, 'O tempo para inscrição no local expirou. Por favor, escaneie o QR Code novamente.')
             return redirect('lista_eventos')
+    if is_inscricao_local and not getattr(evento, 'permite_inscricao_local', True):
+        messages.error(request, 'Este evento não está aceitando novas inscrições no momento do credenciamento.')
+        return redirect('lista_eventos')
     # --------------------------------------------------
 
     # Trava de datas (Ignorada se for Inscrição Local VIP)
@@ -752,24 +756,31 @@ def checkin_evento(request, evento_id):
                         logger.info(f"Check-in Duplicado Barrado (Cooldown): CPF {cpf_formatado} tentou reenviar em menos de 2h | Evento ID {evento.id}")
                         messages.info(request, f'Você já registrou sua presença nesta sessão! (Frequência atual: {inscricao.percentual_frequencia}%)')
             else:
-                # 🚨 NOVO BLOCO: CPF não tem inscrição neste evento. Vamos buscar no histórico geral do sistema
-                logger.info(f"CPF {cpf_formatado} não inscrito no Evento ID {evento.id}. Buscando dados históricos para inscrição expressa...")
-                
-                outra_inscricao = Inscricao.objects.filter(cpf=cpf_formatado).first()
-                nome_historico = outra_inscricao.nome_completo if outra_inscricao else ''
-                email_historico = outra_inscricao.email if outra_inscricao else ''
-                
-                # Monta os parâmetros de URL codificados com segurança (para evitar quebra por espaços no nome)
-                url_inscricao = reverse('inscricao_evento', args=[evento.id])
-                parametros = urlencode({
-                    'cpf': cpf_formatado,
-                    'token': token,
-                    'nome': nome_historico,
-                    'email': email_historico
-                })
-                return redirect(f"{url_inscricao}?{parametros}")
+                # 🚨 NOVO BLOCO ALTERADO: CPF não tem inscrição. Verifica se permite na hora.
+                if getattr(evento, 'permite_inscricao_local', True):
+                    logger.info(f"CPF {cpf_formatado} não inscrito no Evento ID {evento.id}. Buscando dados históricos para inscrição expressa...")
+                    
+                    outra_inscricao = Inscricao.objects.filter(cpf=cpf_formatado).first()
+                    nome_historico = outra_inscricao.nome_completo if outra_inscricao else ''
+                    email_historico = outra_inscricao.email if outra_inscricao else ''
+                    
+                    url_inscricao = reverse('inscricao_evento', args=[evento.id])
+                    parametros = urlencode({
+                        'cpf': cpf_formatado,
+                        'token': token,
+                        'nome': nome_historico,
+                        'email': email_historico
+                    })
+                    return redirect(f"{url_inscricao}?{parametros}")
+                else:
+                    # 🚨 BLOQUEIO DE EVENTO FECHADO
+                    logger.warning(f"Check-in Negado: CPF {cpf_formatado} tentou inscrição na hora, mas Evento ID {evento.id} é fechado.")
+                    messages.error(request, 'Este evento é exclusivo para inscritos previamente e não aceita cadastros na hora.')
+                    # O render abaixo faz o usuário voltar pra mesma tela e ver o Modal Vermelho
+                    return render(request, 'eventos/checkin_self_service.html', {'evento': evento, 'token': token})
                 
     return render(request, 'eventos/checkin_self_service.html', {'evento': evento, 'token': token})
+
 
 @user_passes_test(e_avaliador)
 def api_dados_monitoramento(request, evento_id):

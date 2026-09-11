@@ -42,6 +42,11 @@ class Evento(models.Model):
         verbose_name="Aprovação Automática",
         help_text="Se ativado, os inscritos serão aprovados automaticamente ao enviarem o formulário."
     )
+    permite_inscricao_local = models.BooleanField(
+        default=True, 
+        verbose_name="Permitir Inscrições na Hora",
+        help_text="Se ativado, pessoas não inscritas poderão se cadastrar escaneando o QR Code na porta."
+    )
     
     def __str__(self):
         return self.titulo
