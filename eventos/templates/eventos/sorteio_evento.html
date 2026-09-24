@@ -1,0 +1,253 @@
+{% extends 'eventos/base.html' %}
+
+{% block content %}
+<style>
+    /* Estilos exclusivos para o telão de sorteio */
+    .tela-sorteio {
+        min-height: 75vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: radial-gradient(circle, #1a1c23 0%, #0b0c0d 100%);
+        border-radius: 20px;
+        border: 1px solid #198754;
+        padding: 2rem;
+        box-shadow: 0 0 30px rgba(25, 135, 84, 0.15);
+    }
+    
+    .nome-sorteado {
+        font-size: 4rem;
+        font-weight: 900;
+        letter-spacing: 2px;
+        text-align: center;
+        min-height: 6rem;
+        word-break: break-word;
+        font-family: monospace, sans-serif;
+    }
+
+    .cpf-sorteado {
+        font-size: 2rem;
+        letter-spacing: 5px;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.8s ease-out;
+    }
+
+    .cpf-sorteado.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+</style>
+
+<div class="container-fluid mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="text-warning fw-bold mb-0"><i class="bi bi-gift-fill me-2"></i> Sorteio do Evento</h3>
+        <a href="{% url 'gerenciar_inscricoes' evento.id %}" class="btn btn-outline-secondary btn-sm">Sair do Sorteio</a>
+    </div>
+    
+    <div class="row">
+        <!-- Coluna Esquerda: TELÃO -->
+        <div class="col-lg-8 mb-4 mb-lg-0">
+            <div class="tela-sorteio position-relative">
+                <h5 class="text-success text-uppercase fw-bold mb-5 position-absolute top-0 mt-4">{{ evento.titulo }}</h5>
+                
+                <!-- Aqui entra a animação do Nome -->
+                <div id="resultadoNome" class="text-light nome-sorteado mb-3">
+                    PRONTO PARA SORTEAR
+                </div>
+                
+                <!-- Aqui entra o CPF -->
+                <div id="resultadoCpf" class="text-warning fw-bold cpf-sorteado mb-5">
+                    ***.***.***-**
+                </div>
+                
+                <button id="btnSortear" class="btn btn-success btn-lg px-5 py-3 rounded-pill fw-bold fs-4 shadow-lg" style="transition: transform 0.2s;">
+                    <i class="bi bi-play-circle-fill me-2"></i> INICIAR SORTEIO
+                </button>
+            </div>
+        </div>
+        
+        <!-- Coluna Direita: CONTROLES E HISTÓRICO -->
+        <div class="col-lg-4">
+            <div class="card bg-dark border-secondary h-100 shadow">
+                <div class="card-header bg-dark border-secondary pb-0">
+                    <h5 class="text-light fw-bold"><i class="bi bi-sliders me-2"></i> Configurações</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Toggle de Repetição -->
+                    <div class="form-check form-switch mb-4">
+                        <input class="form-check-input" type="checkbox" role="switch" id="permitirRepeticao">
+                        <label class="form-check-label text-info fw-bold" for="permitirRepeticao">Permitir ganhadores repetidos</label>
+                        <div class="form-text text-white-50 small mt-1">Se desativado, remove da urna quem já foi sorteado hoje.</div>
+                    </div>
+                    
+                    <hr class="border-secondary">
+                    
+                    <h6 class="text-light fw-bold mb-3 d-flex justify-content-between align-items-center">
+                        🏆 Histórico de Sorteados
+                        <button id="btnLimparHistorico" class="btn btn-sm btn-outline-danger" title="Limpar Histórico"><i class="bi bi-trash"></i></button>
+                    </h6>
+                    
+                    <!-- Lista de Vencedores -->
+                    <ul id="listaVencedores" class="list-group list-group-flush rounded border border-secondary">
+                        <li class="list-group-item bg-dark-subtle text-muted text-center small py-3" id="historicoVazio">
+                            Nenhum sorteio realizado ainda.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dados injetados pelo Django -->
+{{ presentes_json|json_script:"dadosPresentes" }}
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Carrega a lista de participantes do JSON
+    const participantesOriginal = JSON.parse(document.getElementById('dadosPresentes').textContent);
+    
+    // Configurações e Elementos
+    const btnSortear = document.getElementById('btnSortear');
+    const resultadoNome = document.getElementById('resultadoNome');
+    const resultadoCpf = document.getElementById('resultadoCpf');
+    const switchRepeticao = document.getElementById('permitirRepeticao');
+    const listaVencedores = document.getElementById('listaVencedores');
+    const historicoVazio = document.getElementById('historicoVazio');
+    const btnLimparHistorico = document.getElementById('btnLimparHistorico');
+    
+    const chaveStorage = 'sorteio_vencedores_evento_{{ evento.id }}';
+    
+    // Funções de Histórico
+    function getHistorico() {
+        return JSON.parse(sessionStorage.getItem(chaveStorage)) || [];
+    }
+    
+    function addAoHistorico(participante) {
+        let historico = getHistorico();
+        historico.push(participante);
+        sessionStorage.setItem(chaveStorage, JSON.stringify(historico));
+        renderizarHistorico();
+    }
+    
+    function limparHistorico() {
+        if(confirm("Tem certeza que deseja apagar o histórico de vencedores desta tela?")) {
+            sessionStorage.removeItem(chaveStorage);
+            renderizarHistorico();
+            // Reseta a tela
+            resultadoNome.innerText = "PRONTO PARA SORTEAR";
+            resultadoNome.classList.replace('text-warning', 'text-light');
+            resultadoCpf.classList.remove('show');
+        }
+    }
+    
+    function renderizarHistorico() {
+        const historico = getHistorico();
+        if (historico.length === 0) {
+            listaVencedores.innerHTML = '<li class="list-group-item bg-dark text-muted text-center small py-3" id="historicoVazio">Nenhum sorteio realizado ainda.</li>';
+        } else {
+            listaVencedores.innerHTML = '';
+            // Renderiza de trás pra frente (mais recente no topo)
+            historico.slice().reverse().forEach((p, index) => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item bg-dark text-light border-secondary d-flex justify-content-between align-items-center';
+                li.innerHTML = `
+                    <div>
+                        <span class="fw-bold text-warning">#${historico.length - index}</span> 
+                        ${p.nome.split(" ")[0]} ${p.nome.split(" ").pop()}
+                    </div>
+                    <span class="badge bg-secondary">${p.cpf_censurado}</span>
+                `;
+                listaVencedores.appendChild(li);
+            });
+        }
+    }
+    
+   // Efeito Hacker (Scramble Total Simultâneo)
+    function animarNome(nomeFinal, callback) {
+        const caracteres = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*";
+        let iteracoes = 0;
+        
+        // Define o tempo de suspense (40 iterações x 50ms = 2 segundos de embaralhamento total)
+        const maxIteracoes = 40; 
+        
+        btnSortear.disabled = true;
+        btnSortear.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> SORTEANDO...';
+        resultadoCpf.classList.remove('show');
+        resultadoNome.classList.remove('text-warning');
+        resultadoNome.classList.add('text-light');
+
+        const interval = setInterval(() => {
+            // Gera caracteres aleatórios para TODAS as posições, o tempo todo
+            resultadoNome.innerText = nomeFinal.split("").map((letra) => {
+                // Mantém os espaços em branco reais para dar a dica do tamanho do nome da pessoa
+                if (letra === " ") return " "; 
+                // Para as letras, coloca um símbolo aleatório
+                return caracteres[Math.floor(Math.random() * caracteres.length)];
+            }).join("");
+
+            iteracoes++;
+
+            // Quando acaba o tempo de suspense, trava no nome verdadeiro de uma só vez
+            if (iteracoes >= maxIteracoes) {
+                clearInterval(interval);
+                resultadoNome.innerText = nomeFinal;
+                resultadoNome.classList.replace('text-light', 'text-warning'); // Brilha amarelo
+                callback();
+            }
+        }, 50); // A cada 50 milissegundos a tela pisca com novas letras
+    }
+
+    // Ação Principal do Botão
+    btnSortear.addEventListener('click', function() {
+        if (participantesOriginal.length === 0) {
+            alert("Não há participantes com presença registrada neste evento ainda!");
+            return;
+        }
+
+        let urna = [...participantesOriginal];
+        const historico = getHistorico();
+        const permitirRepeticao = switchRepeticao.checked;
+
+        // Filtra a urna se não puder repetir
+        if (!permitirRepeticao && historico.length > 0) {
+            const idsSorteados = historico.map(p => p.id);
+            urna = urna.filter(p => !idsSorteados.includes(p.id));
+        }
+
+        if (urna.length === 0) {
+            alert("Todos os participantes presentes já foram sorteados! Ative a opção de repetir ou limpe o histórico.");
+            return;
+        }
+
+        // Dá uma "sacudida" visual no botão
+        this.style.transform = "scale(0.95)";
+        setTimeout(() => this.style.transform = "scale(1)", 150);
+
+        // Escolhe o vencedor aleatoriamente
+        const indexSorteado = Math.floor(Math.random() * urna.length);
+        const vencedor = urna[indexSorteado];
+
+        // Roda a animação cinematográfica
+        animarNome(vencedor.nome, function() {
+            // Callback: O que fazer quando a animação termina
+            resultadoCpf.innerText = vencedor.cpf_censurado;
+            resultadoCpf.classList.add('show');
+            
+            btnSortear.disabled = false;
+            btnSortear.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i> SORTEAR NOVAMENTE';
+            
+            // Salva na sessão
+            addAoHistorico(vencedor);
+        });
+    });
+
+    btnLimparHistorico.addEventListener('click', limparHistorico);
+    
+    // Inicializa a tela com o histórico salvo
+    renderizarHistorico();
+});
+</script>
+{% endblock %}

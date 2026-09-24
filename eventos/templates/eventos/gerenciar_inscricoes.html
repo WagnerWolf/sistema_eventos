@@ -88,7 +88,11 @@ document.addEventListener("DOMContentLoaded", function() {
             
             <!-- Botão do PDF Digital (Novo) -->
             <a href="{% url 'exportar_frequencia_pdf' evento.id %}" target="_blank" class="btn btn-outline-success btn-sm me-2" title="Gera relatório em PDF com a frequência capturada">
-                📊 Frequência Digital (PDF)
+                📊 Frequência Digital
+            </a>
+            
+            <a href="{% url 'sorteio_evento' evento.id %}" target="_blank" class="btn btn-outline-warning btn-sm me-2" title="Abrir telão de sorteio">
+                🎁 Realizar Sorteio
             </a>
             <a href="{% url 'painel_dashboard' %}" class="btn btn-outline-secondary btn-sm">Voltar ao Painel</a>
         </div>

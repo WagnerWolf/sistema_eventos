@@ -947,3 +947,32 @@ def exportar_frequencia_pdf(request, evento_id):
     
     # Retorna o PDF. as_attachment=False faz ele abrir direto no navegador para visualização
     return FileResponse(buffer, as_attachment=False, filename=f"frequencia_digital_{evento.id}.pdf")
+
+def sorteio_evento(request, evento_id):
+    evento = get_object_or_404(Evento, id=evento_id)
+    
+    # Filtra apenas quem tem presença e inscrição aprovada
+    presentes = evento.inscricoes.filter(total_presencas__gt=0, status='APROVADA')
+    
+    lista_presentes = []
+    for p in presentes:
+        # Pega os 3 primeiros dígitos do CPF formatado
+        cpf_numeros = ''.join(filter(str.isdigit, p.cpf))
+        cpf_censurado = f"{cpf_numeros[:3]}.***.***-**" if len(cpf_numeros) >= 11 else "***"
+        
+        # Garante que temos uma string válida antes de dar o uppercase
+        nome = p.nome_completo if p.nome_completo else "PARTICIPANTE"
+        
+        lista_presentes.append({
+            'id': p.id,
+            'nome': nome.upper(),
+            'cpf_censurado': cpf_censurado
+        })
+        
+    context = {
+        'evento': evento,
+        # 🚨 MUDANÇA AQUI: Passamos a lista pura do Python! 
+        # Sem o json.dumps(), o Django converte sozinho lá no HTML de forma perfeita.
+        'presentes_json': lista_presentes 
+    }
+    return render(request, 'eventos/sorteio_evento.html', context)
